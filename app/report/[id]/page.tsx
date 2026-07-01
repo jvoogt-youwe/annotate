@@ -929,6 +929,8 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<string | null>(null);
   const [addPageModal, setAddPageModal] = useState(false);
   const [newPageForm, setNewPageForm] = useState({ name: "", url: "", device: "desktop" });
+  const [capturing, setCapturing] = useState(false);
+  const [captureError, setCaptureError] = useState("");
   const [showOverview, setShowOverview] = useState(() =>
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "1"
   );
@@ -1004,6 +1006,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
 
   function addManualPage() {
     setNewPageForm({ name: "", url: "", device: "desktop" });
+    setCaptureError("");
     setAddPageModal(true);
   }
 
@@ -1016,6 +1019,32 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
     setActivePageId(newPage.id);
     setAddPageModal(false);
     await saveReport(updated);
+  }
+
+  async function captureNewPage() {
+    const { name, url, device } = newPageForm;
+    if (!name.trim() || !url.trim() || !password) return;
+    setCapturing(true);
+    setCaptureError("");
+    try {
+      const res = await fetch("/api/capture-page", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-audit-password": password },
+        body: JSON.stringify({ url: url.trim(), device }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to capture screenshot");
+      const newPage = { id: genId(), name: name.trim(), url: url.trim(), device, screenshotUrl: data.url, annotations: [] };
+      const updated = { ...report, pages: [...report.pages, newPage] };
+      setReport(updated);
+      setActivePageId(newPage.id);
+      setAddPageModal(false);
+      await saveReport(updated);
+    } catch (e: any) {
+      setCaptureError(e.message || "Failed to capture screenshot");
+    } finally {
+      setCapturing(false);
+    }
   }
 
   function updatePageMeta(pageId: string, name: string, url: string, device: string) {
@@ -1095,12 +1124,12 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
       {/* ── ADD PAGE MODAL ── */}
       {addPageModal && (
         <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.45)" }}
-          onClick={() => setAddPageModal(false)}>
+          onClick={() => !capturing && setAddPageModal(false)}>
           <div style={{ background: B.white, borderRadius: 12, width: 420, padding: 28, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", gap: 18 }}
             onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <p style={{ fontSize: 15, fontWeight: 700, color: B.ink }}>Add new page</p>
-              <button onClick={() => setAddPageModal(false)} style={{ background: "none", border: "none", fontSize: 22, color: B.muted, cursor: "pointer", lineHeight: 1, padding: "2px 6px" }}>×</button>
+              <button onClick={() => !capturing && setAddPageModal(false)} disabled={capturing} style={{ background: "none", border: "none", fontSize: 22, color: capturing ? "#ccc" : B.muted, cursor: capturing ? "not-allowed" : "pointer", lineHeight: 1, padding: "2px 6px" }}>×</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
@@ -1129,13 +1158,19 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
-              <button onClick={() => setAddPageModal(false)}
-                style={{ background: B.offWhite, color: B.ink, border: `1.5px solid ${B.border}`, borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            {captureError && <p style={{ fontSize: 12, color: B.red, margin: 0 }}>{captureError}</p>}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4, flexWrap: "wrap" }}>
+              <button onClick={() => setAddPageModal(false)} disabled={capturing}
+                style={{ background: B.offWhite, color: B.ink, border: `1.5px solid ${B.border}`, borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: capturing ? "not-allowed" : "pointer" }}>
                 Cancel
               </button>
-              <button onClick={submitNewPage} disabled={!newPageForm.name.trim()}
-                style={{ background: B.red, color: B.white, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: newPageForm.name.trim() ? "pointer" : "not-allowed", opacity: newPageForm.name.trim() ? 1 : 0.5 }}>
+              <button onClick={captureNewPage} disabled={capturing || !newPageForm.name.trim() || !newPageForm.url.trim()}
+                title={!newPageForm.url.trim() ? "Enter a page URL to capture a screenshot" : undefined}
+                style={{ background: B.ink, color: B.white, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: (capturing || !newPageForm.name.trim() || !newPageForm.url.trim()) ? "not-allowed" : "pointer", opacity: (!newPageForm.name.trim() || !newPageForm.url.trim()) ? 0.5 : 1 }}>
+                {capturing ? "Capturing…" : "Capture & Add Page"}
+              </button>
+              <button onClick={submitNewPage} disabled={!newPageForm.name.trim() || capturing}
+                style={{ background: B.red, color: B.white, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: (newPageForm.name.trim() && !capturing) ? "pointer" : "not-allowed", opacity: newPageForm.name.trim() ? 1 : 0.5 }}>
                 Add page
               </button>
             </div>
