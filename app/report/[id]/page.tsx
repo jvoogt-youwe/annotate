@@ -928,7 +928,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const [selectedAnnotation, setSelectedAnnotation] = useState<any | null>(null);
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<string | null>(null);
   const [addPageModal, setAddPageModal] = useState(false);
-  const [newPageForm, setNewPageForm] = useState({ name: "", url: "", device: "desktop" });
+  const [newPageForm, setNewPageForm] = useState<{ name: string; url: string; devices: string[] }>({ name: "", url: "", devices: ["desktop", "mobile"] });
   const [capturing, setCapturing] = useState(false);
   const [captureError, setCaptureError] = useState("");
   const [showOverview, setShowOverview] = useState(() =>
@@ -1005,39 +1005,44 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   }
 
   function addManualPage() {
-    setNewPageForm({ name: "", url: "", device: "desktop" });
+    setNewPageForm({ name: "", url: "", devices: ["desktop", "mobile"] });
     setCaptureError("");
     setAddPageModal(true);
   }
 
   async function submitNewPage() {
-    const { name, url, device } = newPageForm;
-    if (!name.trim()) return;
-    const newPage = { id: genId(), name: name.trim(), url: url.trim(), device, screenshotUrl: "", annotations: [] };
-    const updated = { ...report, pages: [...report.pages, newPage] };
+    const { name, url, devices } = newPageForm;
+    if (!name.trim() || devices.length === 0) return;
+    const newPages = devices.map(device => ({ id: genId(), name: name.trim(), url: url.trim(), device, screenshotUrl: "", annotations: [] }));
+    const updated = { ...report, pages: [...report.pages, ...newPages] };
     setReport(updated);
-    setActivePageId(newPage.id);
+    setActivePageId(newPages[0].id);
     setAddPageModal(false);
     await saveReport(updated);
   }
 
   async function captureNewPage() {
-    const { name, url, device } = newPageForm;
-    if (!name.trim() || !url.trim() || !password) return;
+    const { name, url, devices } = newPageForm;
+    if (!name.trim() || !url.trim() || devices.length === 0 || !password) return;
     setCapturing(true);
     setCaptureError("");
     try {
-      const res = await fetch("/api/capture-page", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-audit-password": password },
-        body: JSON.stringify({ url: url.trim(), device }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to capture screenshot");
-      const newPage = { id: genId(), name: name.trim(), url: url.trim(), device, screenshotUrl: data.url, annotations: [] };
-      const updated = { ...report, pages: [...report.pages, newPage] };
+      const newPages: any[] = [];
+      // Sequential, not concurrent — running two thorough captures at once was found
+      // to contend for CPU and be slower overall than one at a time (see app/api/reports/route.ts).
+      for (const device of devices) {
+        const res = await fetch("/api/capture-page", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-audit-password": password },
+          body: JSON.stringify({ url: url.trim(), device }),
+        });
+        const data = await res.json();
+        if (res.ok) newPages.push({ id: genId(), name: name.trim(), url: url.trim(), device, screenshotUrl: data.url, annotations: [] });
+      }
+      if (newPages.length === 0) throw new Error("Failed to capture screenshot for any selected device");
+      const updated = { ...report, pages: [...report.pages, ...newPages] };
       setReport(updated);
-      setActivePageId(newPage.id);
+      setActivePageId(newPages[0].id);
       setAddPageModal(false);
       await saveReport(updated);
     } catch (e: any) {
@@ -1146,15 +1151,20 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
               </div>
               <div>
                 <label style={LBL}>Device type</label>
-                <div style={{ position: "relative" }}>
-                  <select value={newPageForm.device} onChange={e => setNewPageForm(f => ({ ...f, device: e.target.value }))}
-                    style={{ width: "100%", background: B.offWhite, border: `1.5px solid ${B.border}`, borderRadius: 8, padding: "10px 36px 10px 14px", fontSize: 13, fontFamily: "Arial, sans-serif", color: "#151515", cursor: "pointer", appearance: "none" as any }}>
-                    <option value="desktop">Desktop</option>
-                    <option value="mobile">Mobile</option>
-                  </select>
-                  <svg style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path d="M2 4l4 4 4-4" stroke="#6b7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                <div style={{ display: "flex", gap: 16 }}>
+                  {(["desktop", "mobile"] as const).map(d => (
+                    <label key={d} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontFamily: "Arial, sans-serif", color: "#151515", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={newPageForm.devices.includes(d)}
+                        onChange={e => setNewPageForm(f => ({
+                          ...f,
+                          devices: e.target.checked ? [...f.devices, d] : f.devices.filter(x => x !== d),
+                        }))}
+                      />
+                      {d === "desktop" ? "Desktop" : "Mobile"}
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1164,13 +1174,13 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
                 style={{ background: B.offWhite, color: B.ink, border: `1.5px solid ${B.border}`, borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: capturing ? "not-allowed" : "pointer" }}>
                 Cancel
               </button>
-              <button onClick={captureNewPage} disabled={capturing || !newPageForm.name.trim() || !newPageForm.url.trim()}
+              <button onClick={captureNewPage} disabled={capturing || !newPageForm.name.trim() || !newPageForm.url.trim() || newPageForm.devices.length === 0}
                 title={!newPageForm.url.trim() ? "Enter a page URL to capture a screenshot" : undefined}
-                style={{ background: B.ink, color: B.white, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: (capturing || !newPageForm.name.trim() || !newPageForm.url.trim()) ? "not-allowed" : "pointer", opacity: (!newPageForm.name.trim() || !newPageForm.url.trim()) ? 0.5 : 1 }}>
+                style={{ background: B.ink, color: B.white, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: (capturing || !newPageForm.name.trim() || !newPageForm.url.trim() || newPageForm.devices.length === 0) ? "not-allowed" : "pointer", opacity: (!newPageForm.name.trim() || !newPageForm.url.trim() || newPageForm.devices.length === 0) ? 0.5 : 1 }}>
                 {capturing ? "Capturing…" : "Capture & Add Page"}
               </button>
-              <button onClick={submitNewPage} disabled={!newPageForm.name.trim() || capturing}
-                style={{ background: B.red, color: B.white, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: (newPageForm.name.trim() && !capturing) ? "pointer" : "not-allowed", opacity: newPageForm.name.trim() ? 1 : 0.5 }}>
+              <button onClick={submitNewPage} disabled={!newPageForm.name.trim() || newPageForm.devices.length === 0 || capturing}
+                style={{ background: B.red, color: B.white, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: (newPageForm.name.trim() && newPageForm.devices.length > 0 && !capturing) ? "pointer" : "not-allowed", opacity: (newPageForm.name.trim() && newPageForm.devices.length > 0) ? 1 : 0.5 }}>
                 Add page
               </button>
             </div>
