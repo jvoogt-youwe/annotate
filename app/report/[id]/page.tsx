@@ -1161,6 +1161,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
                           ...f,
                           devices: e.target.checked ? [...f.devices, d] : f.devices.filter(x => x !== d),
                         }))}
+                        style={{ accentColor: B.red }}
                       />
                       {d === "desktop" ? "Desktop" : "Mobile"}
                     </label>
@@ -1170,10 +1171,6 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
             </div>
             {captureError && <p style={{ fontSize: 12, color: B.red, margin: 0 }}>{captureError}</p>}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4, flexWrap: "wrap" }}>
-              <button onClick={() => setAddPageModal(false)} disabled={capturing}
-                style={{ background: B.offWhite, color: B.ink, border: `1.5px solid ${B.border}`, borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: capturing ? "not-allowed" : "pointer" }}>
-                Cancel
-              </button>
               <button onClick={captureNewPage} disabled={capturing || !newPageForm.name.trim() || !newPageForm.url.trim() || newPageForm.devices.length === 0}
                 title={!newPageForm.url.trim() ? "Enter a page URL to capture a screenshot" : undefined}
                 style={{ background: B.ink, color: B.white, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: (capturing || !newPageForm.name.trim() || !newPageForm.url.trim() || newPageForm.devices.length === 0) ? "not-allowed" : "pointer", opacity: (!newPageForm.name.trim() || !newPageForm.url.trim() || newPageForm.devices.length === 0) ? 0.5 : 1 }}>
