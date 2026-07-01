@@ -131,6 +131,7 @@ async function captureScreenshot(url: string, device: "desktop" | "mobile"): Pro
     });
     return blob.url;
   } catch (e) {
+    console.error(`captureScreenshot failed for ${url} (${device}):`, e);
     if (browser) await browser.close().catch(() => {});
     return null;
   }
