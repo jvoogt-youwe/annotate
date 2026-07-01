@@ -110,6 +110,9 @@ export default function Home() {
         headers: { "Content-Type": "application/json", "x-audit-password": password },
         body: JSON.stringify({ url: url.trim() }),
       });
+      if (!res.ok && !res.headers.get("content-type")?.includes("application/json")) {
+        throw new Error(res.status === 504 ? "The report took too long to generate and timed out. Try again, or try a smaller site." : `Server error (${res.status}). Please try again.`);
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create report");
       window.location.href = `/report/${data.id}`;

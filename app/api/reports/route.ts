@@ -86,9 +86,9 @@ async function captureScreenshot(browser: import("puppeteer-core").Browser, url:
 
     // 1. Remove cookie banners, overlays and restore scroll (some consent widgets mount
     // a beat after networkidle, so wait briefly before the first dismiss attempt)
-    await new Promise(r => setTimeout(r, 1200));
+    await new Promise(r => setTimeout(r, 800));
     await dismissCookieBanners(page);
-    await new Promise(r => setTimeout(r, 600));
+    await new Promise(r => setTimeout(r, 400));
 
     // 3. Force lazy images to load by setting src from data attributes
     await page.evaluate(() => {
@@ -107,7 +107,7 @@ async function captureScreenshot(browser: import("puppeteer-core").Browser, url:
     // 4. Scroll down slowly to trigger any remaining lazy load listeners
     await page.evaluate(async () => {
       await new Promise<void>(resolve => {
-        const step = 400;
+        const step = 600;
         let pos = 0;
         const timer = setInterval(() => {
           window.scrollBy(0, step);
@@ -116,7 +116,7 @@ async function captureScreenshot(browser: import("puppeteer-core").Browser, url:
             clearInterval(timer);
             resolve();
           }
-        }, 100);
+        }, 70);
       });
     });
 
@@ -126,9 +126,9 @@ async function captureScreenshot(browser: import("puppeteer-core").Browser, url:
       await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })));
     }).catch(() => {});
 
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 500));
     await page.evaluate(() => window.scrollTo(0, 0));
-    await new Promise(r => setTimeout(r, 400));
+    await new Promise(r => setTimeout(r, 300));
 
     // 6. Second dismiss pass, in case a banner mounted late during image/scroll steps
     await dismissCookieBanners(page);
@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
       { page: p, device: "desktop" as const },
       { page: p, device: "mobile" as const },
     ]);
-    const CONCURRENCY = 2;
+    const CONCURRENCY = 3;
     const captured: (({ id: string; name: string; url: string; device: string; screenshotUrl: string; annotations: never[] }) | null)[] = new Array(tasks.length);
     let next = 0;
     async function worker() {
