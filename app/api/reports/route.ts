@@ -3,12 +3,21 @@ import { put, list } from "@vercel/blob";
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const LOCAL_CHROME_PATH =
   process.platform === "darwin" ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" :
   process.platform === "win32" ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" :
   "/usr/bin/google-chrome";
+
+// Concurrent captureScreenshot() calls each independently trigger chromium's
+// /tmp binary extraction, which races and fails with ETXTBSY. Resolve it once
+// per container and let every launch reuse the same path.
+let chromiumExecutablePath: Promise<string> | null = null;
+function getChromiumExecutablePath() {
+  if (!chromiumExecutablePath) chromiumExecutablePath = chromium.executablePath();
+  return chromiumExecutablePath;
+}
 
 function auth(req: NextRequest) {
   return req.headers.get("x-audit-password") === process.env.AUDIT_PASSWORD;
@@ -58,17 +67,20 @@ async function dismissCookieBanners(page: import("puppeteer-core").Page) {
   }).catch(() => {});
 }
 
-async function captureScreenshot(url: string, device: "desktop" | "mobile"): Promise<string | null> {
+async function launchBrowser() {
+  return puppeteer.launch(
+    process.env.VERCEL
+      ? { args: chromium.args, executablePath: await getChromiumExecutablePath(), headless: true }
+      : { executablePath: LOCAL_CHROME_PATH, headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] }
+  );
+}
+
+async function captureScreenshot(browser: import("puppeteer-core").Browser, url: string, device: "desktop" | "mobile"): Promise<string | null> {
   const width = device === "desktop" ? 1440 : 390;
   const height = device === "desktop" ? 900 : 844;
-  let browser;
+  let page;
   try {
-    browser = await puppeteer.launch(
-      process.env.VERCEL
-        ? { args: chromium.args, executablePath: await chromium.executablePath(), headless: true }
-        : { executablePath: LOCAL_CHROME_PATH, headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] }
-    );
-    const page = await browser.newPage();
+    page = await browser.newPage();
     await page.setViewport({ width, height, isMobile: device === "mobile" });
     await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
@@ -122,7 +134,7 @@ async function captureScreenshot(url: string, device: "desktop" | "mobile"): Pro
     await dismissCookieBanners(page);
 
     const buffer = Buffer.from(await page.screenshot({ fullPage: true, type: "jpeg", quality: 85 }));
-    await browser.close();
+    await page.close();
 
     const blob = await put(`screenshots/${genId()}.jpg`, buffer, {
       access: "public",
@@ -132,7 +144,7 @@ async function captureScreenshot(url: string, device: "desktop" | "mobile"): Pro
     return blob.url;
   } catch (e) {
     console.error(`captureScreenshot failed for ${url} (${device}):`, e);
-    if (browser) await browser.close().catch(() => {});
+    if (page) await page.close().catch(() => {});
     return null;
   }
 }
@@ -208,25 +220,38 @@ export async function POST(req: NextRequest) {
 
   const detectedPages = await detectPages(url);
 
-  const pages = await Promise.all(
-    detectedPages.map(async p => {
-      const [desktopUrl, mobileUrl] = await Promise.all([
-        captureScreenshot(p.url, "desktop"),
-        captureScreenshot(p.url, "mobile"),
-      ]);
-      const result = [];
-      if (desktopUrl) result.push({ id: genId(), name: p.name, url: p.url, device: "desktop", screenshotUrl: desktopUrl, annotations: [] });
-      if (mobileUrl) result.push({ id: genId(), name: p.name, url: p.url, device: "mobile", screenshotUrl: mobileUrl, annotations: [] });
-      return result;
-    })
-  );
+  const browser = await launchBrowser();
+  let pages;
+  try {
+    // Flatten into one (page, device) task list and cap concurrency — letting every
+    // page/device navigate at once starves each tab of CPU until they all time out.
+    const tasks = detectedPages.flatMap(p => [
+      { page: p, device: "desktop" as const },
+      { page: p, device: "mobile" as const },
+    ]);
+    const CONCURRENCY = 2;
+    const captured: (({ id: string; name: string; url: string; device: string; screenshotUrl: string; annotations: never[] }) | null)[] = new Array(tasks.length);
+    let next = 0;
+    async function worker() {
+      while (next < tasks.length) {
+        const i = next++;
+        const { page: p, device } = tasks[i];
+        const screenshotUrl = await captureScreenshot(browser, p.url, device);
+        captured[i] = screenshotUrl ? { id: genId(), name: p.name, url: p.url, device, screenshotUrl, annotations: [] } : null;
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, tasks.length) }, worker));
+    pages = captured.filter((p): p is NonNullable<typeof p> => p !== null);
+  } finally {
+    await browser.close().catch(() => {});
+  }
 
   const report = {
     id,
     url,
     siteName,
     createdAt: new Date().toISOString(),
-    pages: pages.flat(),
+    pages,
   };
 
   await put(`reports/${id}.json`, JSON.stringify(report), {
