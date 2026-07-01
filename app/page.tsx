@@ -71,10 +71,7 @@ export default function Home() {
   const [deleting, setDeleting] = useState(false);
 
   const MSGS = [
-    "Detecting key page types…",
     "Capturing homepage screenshots…",
-    "Capturing category & listing pages…",
-    "Capturing product & checkout pages…",
     "Processing screenshots…",
     "Preparing report…",
   ];
@@ -157,7 +154,7 @@ export default function Home() {
           </div>
           <div style={{ padding: "32px 0 36px" }}>
             <h1 style={{ fontSize: 28, fontWeight: 900, color: B.white, letterSpacing: "-0.02em", lineHeight: 1.15, marginBottom: 6 }}>Youwe Annotate<span style={{ color: B.red }}>.</span></h1>
-            <p style={{ fontSize: 14, color: B.muted, marginBottom: 24, maxWidth: 520 }}>Enter a client URL to capture screenshots of all key pages and build an annotated report.</p>
+            <p style={{ fontSize: 14, color: B.muted, marginBottom: 24, maxWidth: 520 }}>Enter a client URL to capture a homepage screenshot and build an annotated report. Add more pages manually as you go.</p>
             <div style={{ display: "flex", gap: 10, maxWidth: 680 }}>
               <input
                 type="url" placeholder="https://client-site.co.uk"
@@ -198,7 +195,7 @@ export default function Home() {
                 </svg>
               ),
               title: "Auto-capture",
-              desc: "Screenshots of homepage, PLP, PDP, checkout and more — desktop & mobile.",
+              desc: "Homepage screenshot, desktop & mobile — add more pages manually anytime.",
             },
             {
               icon: (
