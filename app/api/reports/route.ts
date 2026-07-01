@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put, list } from "@vercel/blob";
-import puppeteer from "puppeteer";
+import chromium from "@sparticuz/chromium";
+import puppeteer from "puppeteer-core";
+
+export const maxDuration = 60;
+
+const LOCAL_CHROME_PATH =
+  process.platform === "darwin" ? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" :
+  process.platform === "win32" ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" :
+  "/usr/bin/google-chrome";
 
 function auth(req: NextRequest) {
   return req.headers.get("x-audit-password") === process.env.AUDIT_PASSWORD;
@@ -8,58 +16,66 @@ function auth(req: NextRequest) {
 
 function genId() { return Math.random().toString(36).slice(2, 9); }
 
+async function dismissCookieBanners(page: import("puppeteer-core").Page) {
+  await page.addStyleTag({ content: `
+    #onetrust-consent-sdk, #onetrust-banner-sdk, #onetrust-pc-sdk,
+    #CybotCookiebotDialog, #CybotCookiebotDialogBodyUnderlay,
+    .cookielaw-icon, #cookie-notice, .cookie-notice,
+    .cookie-banner, .cookie-consent, .cookie-bar,
+    .cc-window, .cc-banner, #cc-main,
+    [id*="cookie-consent"], [class*="cookie-consent"],
+    [id*="cookie-banner"], [class*="cookie-banner"],
+    [id*="cookie-overlay"], [class*="cookie-overlay"],
+    #hs-eu-cookie-confirmation, .hs-cookie-notification-position-bottom,
+    [class*="CookieBanner"], [id*="CookieBanner"],
+    [class*="consent-banner"], [id*="consent-banner"],
+    .evidon-banner, .truste_overlay, .truste_box_overlay { display: none !important; }
+    body, html { overflow: auto !important; }
+  ` }).catch(() => {});
+
+  await page.evaluate(() => {
+    // Try clicking accept first
+    const keywords = ["accept all", "accept cookies", "allow all", "allow cookies", "i agree", "agree to all", "got it", "ok, i agree"];
+    const els = Array.from(document.querySelectorAll("button, a, [role=button], div, span")) as HTMLElement[];
+    const btn = els.find(el => el.children.length === 0 && keywords.some(k => el.innerText?.toLowerCase().trim().startsWith(k)));
+    if (btn) btn.click();
+
+    // Remove any remaining fixed/absolute elements with a semi-transparent or dark background
+    // that look like overlays (z-index > 50, covers most of the screen)
+    document.querySelectorAll<HTMLElement>("body > *, body > * > *, body > * > * > *").forEach(el => {
+      const s = window.getComputedStyle(el);
+      const zIndex = parseInt(s.zIndex) || 0;
+      const bg = s.backgroundColor;
+      const pos = s.position;
+      const isOverlay = (pos === "fixed" || pos === "absolute") && zIndex > 50;
+      const isDark = bg.includes("rgba") && bg.includes("0, 0, 0") && !bg.includes("rgba(0, 0, 0, 0)");
+      if (isOverlay && isDark) el.remove();
+    });
+
+    // Restore body scroll in case the banner locked it
+    document.body.style.overflow = "auto";
+    document.documentElement.style.overflow = "auto";
+  }).catch(() => {});
+}
+
 async function captureScreenshot(url: string, device: "desktop" | "mobile"): Promise<string | null> {
   const width = device === "desktop" ? 1440 : 390;
   const height = device === "desktop" ? 900 : 844;
   let browser;
   try {
-    browser = await puppeteer.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+    browser = await puppeteer.launch(
+      process.env.VERCEL
+        ? { args: chromium.args, executablePath: await chromium.executablePath(), headless: true }
+        : { executablePath: LOCAL_CHROME_PATH, headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] }
+    );
     const page = await browser.newPage();
     await page.setViewport({ width, height, isMobile: device === "mobile" });
     await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
-    // 1. Remove cookie banners, overlays and restore scroll
-    await page.addStyleTag({ content: `
-      #onetrust-consent-sdk, #onetrust-banner-sdk, #onetrust-pc-sdk,
-      #CybotCookiebotDialog, #CybotCookiebotDialogBodyUnderlay,
-      .cookielaw-icon, #cookie-notice, .cookie-notice,
-      .cookie-banner, .cookie-consent, .cookie-bar,
-      .cc-window, .cc-banner, #cc-main,
-      [id*="cookie-consent"], [class*="cookie-consent"],
-      [id*="cookie-banner"], [class*="cookie-banner"],
-      [id*="cookie-overlay"], [class*="cookie-overlay"],
-      #hs-eu-cookie-confirmation, .hs-cookie-notification-position-bottom,
-      [class*="CookieBanner"], [id*="CookieBanner"],
-      [class*="consent-banner"], [id*="consent-banner"],
-      .evidon-banner, .truste_overlay, .truste_box_overlay { display: none !important; }
-      body, html { overflow: auto !important; }
-    ` });
-
-    // 2. Remove any remaining fixed overlays (dark backgrounds left behind by cookie banners)
-    await page.evaluate(() => {
-      // Try clicking accept first
-      const keywords = ["accept all", "accept cookies", "allow all", "allow cookies", "i agree", "agree to all", "got it", "ok, i agree"];
-      const els = Array.from(document.querySelectorAll("button, a, [role=button]")) as HTMLElement[];
-      const btn = els.find(el => keywords.some(k => el.innerText?.toLowerCase().trim().startsWith(k)));
-      if (btn) btn.click();
-
-      // Remove any fixed/absolute elements with a semi-transparent or dark background
-      // that look like overlays (z-index > 50, covers most of the screen)
-      document.querySelectorAll<HTMLElement>("body > *, body > * > *").forEach(el => {
-        const s = window.getComputedStyle(el);
-        const zIndex = parseInt(s.zIndex) || 0;
-        const bg = s.backgroundColor;
-        const pos = s.position;
-        const isOverlay = (pos === "fixed" || pos === "absolute") && zIndex > 50;
-        const isDark = bg.includes("rgba") && bg.includes("0, 0, 0") && !bg.includes("rgba(0, 0, 0, 0)");
-        if (isOverlay && isDark) el.remove();
-      });
-
-      // Restore body scroll in case the banner locked it
-      document.body.style.overflow = "auto";
-      document.documentElement.style.overflow = "auto";
-    }).catch(() => {});
-
+    // 1. Remove cookie banners, overlays and restore scroll (some consent widgets mount
+    // a beat after networkidle, so wait briefly before the first dismiss attempt)
+    await new Promise(r => setTimeout(r, 1200));
+    await dismissCookieBanners(page);
     await new Promise(r => setTimeout(r, 600));
 
     // 3. Force lazy images to load by setting src from data attributes
@@ -101,6 +117,9 @@ async function captureScreenshot(url: string, device: "desktop" | "mobile"): Pro
     await new Promise(r => setTimeout(r, 800));
     await page.evaluate(() => window.scrollTo(0, 0));
     await new Promise(r => setTimeout(r, 400));
+
+    // 6. Second dismiss pass, in case a banner mounted late during image/scroll steps
+    await dismissCookieBanners(page);
 
     const buffer = Buffer.from(await page.screenshot({ fullPage: true, type: "jpeg", quality: 85 }));
     await browser.close();

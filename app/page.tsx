@@ -11,6 +11,27 @@ function YouweLogo({ height = 36 }: { height?: number }) {
   return <img src="/youwe-logo.svg" height={height} alt="Youwe" />;
 }
 
+function ConfirmDeleteModal({ siteName, onCancel, onConfirm, deleting }: { siteName: string; onCancel: () => void; onConfirm: () => void; deleting: boolean }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, zIndex: 100 }}>
+      <div style={{ background: B.white, borderRadius: 16, padding: 28, maxWidth: 380, width: "100%" }}>
+        <h2 style={{ fontSize: 17, fontWeight: 900, color: B.ink, marginBottom: 8 }}>Delete this report?</h2>
+        <p style={{ fontSize: 13, color: B.muted, marginBottom: 24, lineHeight: 1.5 }}>
+          This will permanently delete the report for <strong style={{ color: B.ink }}>{siteName}</strong> and all its screenshots. This can't be undone.
+        </p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} disabled={deleting} style={{ background: "none", border: `1.5px solid ${B.border}`, borderRadius: 8, padding: "10px 18px", fontWeight: 700, fontSize: 13, color: B.ink, cursor: deleting ? "not-allowed" : "pointer" }}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={deleting} style={{ background: B.red, border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 800, fontSize: 13, color: B.white, cursor: deleting ? "not-allowed" : "pointer" }}>
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PasswordGate({ onAuth }: { onAuth: (p: string) => void }) {
   const [val, setVal] = useState("");
 
@@ -46,6 +67,8 @@ export default function Home() {
   const [error, setError] = useState("");
   const [loadingMsg, setLoadingMsg] = useState("");
   const [recentReports, setRecentReports] = useState<any[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; siteName: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const MSGS = [
     "Detecting key page types…",
@@ -95,6 +118,24 @@ export default function Home() {
       setStatus("error");
     } finally {
       clearInterval(iv);
+    }
+  }
+
+  async function handleDelete() {
+    if (!pendingDelete || !password) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/reports/${pendingDelete.id}`, {
+        method: "DELETE",
+        headers: { "x-audit-password": password },
+      });
+      if (!res.ok) throw new Error("Failed to delete report");
+      setRecentReports(prev => prev.filter(r => r.id !== pendingDelete.id));
+      setPendingDelete(null);
+    } catch {
+      // leave the modal open so the user can retry or cancel
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -194,8 +235,20 @@ export default function Home() {
                     <p style={{ fontSize: 13, fontWeight: 700, color: B.ink, marginBottom: 2 }}>{r.siteName || r.url}</p>
                     <p style={{ fontSize: 11, color: B.muted }}>{r.url} · {r.pages?.length || 0} pages</p>
                   </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
+                  <div style={{ display: "flex", gap: 14, alignItems: "center", flexShrink: 0 }}>
                     <span style={{ fontSize: 11, color: B.muted }}>{new Date(r.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+                    <button
+                      onClick={e => { e.preventDefault(); e.stopPropagation(); setPendingDelete({ id: r.id, siteName: r.siteName || r.url }); }}
+                      title="Delete report"
+                      style={{ background: "none", border: "none", color: B.muted, cursor: "pointer", padding: 4, lineHeight: 1, display: "flex", alignItems: "center" }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 7h16" />
+                        <path d="M9 7V4h6v3" />
+                        <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
+                        <path d="M10 11v6M14 11v6" />
+                      </svg>
+                    </button>
                     <span style={{ fontSize: 13, color: B.muted }}>→</span>
                   </div>
                 </a>
@@ -204,6 +257,15 @@ export default function Home() {
           </div>
         )}
       </main>
+
+      {pendingDelete && (
+        <ConfirmDeleteModal
+          siteName={pendingDelete.siteName}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={handleDelete}
+          deleting={deleting}
+        />
+      )}
     </div>
   );
 }

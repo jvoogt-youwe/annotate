@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put, list } from "@vercel/blob";
+import { put, list, del } from "@vercel/blob";
 
 function auth(req: NextRequest) {
   return req.headers.get("x-audit-password") === process.env.AUDIT_PASSWORD;
@@ -56,6 +56,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!auth(req)) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  const { id } = await params;
+  try {
+    const blob = await findReportBlob(id);
+    if (!blob) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    const res = await fetch(blob.url);
+    const report = await res.json();
+    const screenshotUrls = (report.pages || []).map((p: any) => p.screenshotUrl).filter(Boolean);
+
+    await del([blob.url, ...screenshotUrls], { token: process.env.BLOB_READ_WRITE_TOKEN });
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || "Failed to delete report" }, { status: 500 });
   }
 }
 
