@@ -19,7 +19,7 @@ Internal Youwe Agency tool ("UX Annotate") for auditing client websites. A user 
 - `app/api/reports/[id]/route.ts` — fetch/update/delete a single report (delete also removes its screenshots from Blob).
 - `app/report/[id]/page.tsx` — renders a report with annotated screenshots.
 
-**Conventions:** all styling is inline React style objects (no CSS framework). Auth is a single shared team password, not per-user accounts.
+**Conventions:** styling uses Tailwind CSS v4 (`app/globals.css`, `postcss.config.mjs`), with brand colours registered as `@theme` tokens (`bg-brand-red`, `text-brand-ink`, etc. — see `app/lib/theme.ts` for the matching category/severity color lookups and shared className fragments). Small `style={{...}}` props remain where a value is genuinely data-driven at runtime (e.g. an annotation pin's severity color, drag position, or highlight scale/transform) — that's intentional, not leftover inline styling. `app/report/[id]/page.tsx` is composed from components in `app/components/report/` and `app/components/YouweLogo.tsx`, with shared types in `app/lib/types.ts`. Auth is a single shared team password, not per-user accounts.
 
 **Brand colours:** red `#e40046`, ink `#151515`, blue `#76B4FD`, green `#00c48c`, amber `#f5a623`, offWhite `#f7f7f8`, muted `#9a9a9a`.
 

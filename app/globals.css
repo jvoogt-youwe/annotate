@@ -1,3 +1,23 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand-red: #e40046;
+  --color-brand-ink: #151515;
+  --color-brand-ink-mid: #2a2a2a;
+  --color-brand-white: #ffffff;
+  --color-brand-off-white: #f7f7f8;
+  --color-brand-muted: #9a9a9a;
+  --color-brand-border: #e8e8e8;
+  --color-brand-blue: #76B4FD;
+  --color-brand-green: #00c48c;
+  --color-brand-amber: #f5a623;
+
+  --animate-spin-custom: spin 0.75s linear infinite;
+  --animate-fade-up: fadeUp 0.3s ease;
+  --animate-slide-in: slideIn 0.2s ease;
+  --animate-slide-up: slideUp 0.2s ease;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; background: #f7f7f8; -webkit-font-smoothing: antialiased; }
 @keyframes spin { to { transform: rotate(360deg); } }
