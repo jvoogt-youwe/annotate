@@ -13,14 +13,32 @@ function withProtocol(url: string) {
 
 // ─── COMMENT DETAIL (side panel, editable annotation view — shared by both the ──
 // ─── "Annotations" list selection and clicking a pin directly on the screenshot) ──
-export function CommentDetail({ annotation, page, onClose, onSave, onDelete, readonly, reportId, password, onClientNotesSaved, isNew, saving }: {
+export function CommentDetail({ annotation, page, onClose, onSave, onDelete, readonly, reportId, password, onClientNotesSaved, isNew, saving, jiraConfigured, onPushToJira }: {
   annotation: Annotation; page: Page | null | undefined; onClose: () => void;
   onSave: (a: Annotation) => void; onDelete: (id: string) => void;
   readonly: boolean; reportId: string; password: string | null;
   onClientNotesSaved: (annotationId: string, notes: string) => void;
   isNew?: boolean;
   saving: boolean;
+  jiraConfigured: boolean; onPushToJira: (annotationId: string) => Promise<any>;
 }) {
+  const [pushingToJira, setPushingToJira] = useState(false);
+  const [jiraPushError, setJiraPushError] = useState("");
+
+  async function pushToJira() {
+    if (pushingToJira || annotation.jiraKey) return;
+    setPushingToJira(true);
+    setJiraPushError("");
+    try {
+      const data = await onPushToJira(annotation.id);
+      const result = data.results?.[0];
+      if (!result?.ok) setJiraPushError(result?.error || "Failed to push to Jira");
+    } catch (e: any) {
+      setJiraPushError(e.message || "Failed to push to Jira");
+    } finally {
+      setPushingToJira(false);
+    }
+  }
   const [form, setForm] = useState({
     category: annotation.category || "UX",
     severity: annotation.severity || "High",
@@ -336,6 +354,32 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
                 👎 Disagree
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Jira — shown once a finding is persisted (not for brand-new, unsaved pins) */}
+        {!isNew && (annotation.jiraKey || (jiraConfigured && !readonly)) && (
+          <div className="border-t border-brand-border pt-[18px]">
+            <label className={LBL_CLASS}>Jira</label>
+            {annotation.jiraKey ? (
+              <a href={annotation.jiraUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2.5 bg-[#0052cc14] rounded-lg px-3.5 py-3 border border-[#0052cc33] no-underline">
+                <span className="text-base shrink-0">🔗</span>
+                <span className="text-[13px] font-bold" style={{ color: "#0052cc" }}>{annotation.jiraKey}</span>
+                <span className="text-xs text-brand-muted">View in Jira →</span>
+              </a>
+            ) : (
+              <>
+                <button onClick={pushToJira} disabled={pushingToJira}
+                  className="w-full bg-[#0052cc] text-white border-none rounded-lg py-2.5 text-[13px] font-bold flex items-center justify-center gap-2"
+                  style={{ cursor: pushingToJira ? "not-allowed" : "pointer", opacity: pushingToJira ? 0.7 : 1 }}>
+                  {pushingToJira
+                    ? <><div className="w-[13px] h-[13px] rounded-full border-2 border-white/40 border-t-white animate-spin" />Pushing…</>
+                    : "Push to Jira"}
+                </button>
+                {jiraPushError && <p className="text-xs text-brand-red mt-1.5 mb-0">{jiraPushError}</p>}
+              </>
+            )}
           </div>
         )}
       </div>

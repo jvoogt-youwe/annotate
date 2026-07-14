@@ -5,16 +5,20 @@ import type { Annotation, DataSource, Page } from "../../lib/types";
 
 // ─── ANNOTATED SCREENSHOT ─────────────────────────────────────────────────────
 export function AnnotatedScreenshot({
-  page, onUpdate, password, readonly, highlightedAnnotationId, onSelectAnnotation, dataSources,
+  page, onUpdate, password, readonly, highlightedAnnotationId, onSelectAnnotation, dataSources, jiraConfigured, onPushToJira,
 }: {
   page: Page; onUpdate: (p: Page) => void; password: string | null;
   readonly: boolean; highlightedAnnotationId: string | null;
   onSelectAnnotation: (a: Annotation) => void; dataSources: DataSource[];
+  jiraConfigured: boolean; onPushToJira: (annotationIds: string[]) => Promise<any>;
 }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragMoved, setDragMoved] = useState(false);
+  const [selectedForJira, setSelectedForJira] = useState<Set<string>>(new Set());
+  const [pushingToJira, setPushingToJira] = useState(false);
+  const [jiraError, setJiraError] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -59,6 +63,30 @@ export function AnnotatedScreenshot({
       alert("AI analysis failed: " + e.message);
     } finally {
       setAiLoading(false);
+    }
+  }
+
+  function toggleForJira(id: string) {
+    setSelectedForJira(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function pushSelectedToJira() {
+    if (selectedForJira.size === 0 || pushingToJira) return;
+    setPushingToJira(true);
+    setJiraError("");
+    try {
+      const data = await onPushToJira([...selectedForJira]);
+      const failed = (data.results || []).filter((r: any) => !r.ok);
+      if (failed.length > 0) setJiraError(`${failed.length} finding${failed.length !== 1 ? "s" : ""} failed to push: ${failed[0].error}`);
+      setSelectedForJira(new Set());
+    } catch (e: any) {
+      setJiraError(e.message || "Failed to push to Jira");
+    } finally {
+      setPushingToJira(false);
     }
   }
 
@@ -139,16 +167,40 @@ export function AnnotatedScreenshot({
 
       {page.annotations.length > 0 && (
         <div className="mt-4 flex flex-col gap-1.5">
+          {!readonly && jiraConfigured && (
+            <div className="flex items-center gap-2.5 mb-1">
+              <button onClick={pushSelectedToJira} disabled={selectedForJira.size === 0 || pushingToJira}
+                className="bg-[#0052cc] text-white border-none rounded-lg px-[14px] py-[7px] font-bold text-[13px] flex items-center gap-2"
+                style={{ cursor: (selectedForJira.size === 0 || pushingToJira) ? "not-allowed" : "pointer", opacity: selectedForJira.size === 0 ? 0.5 : pushingToJira ? 0.7 : 1 }}>
+                {pushingToJira
+                  ? <><div className="w-[13px] h-[13px] rounded-full border-2 border-white/40 border-t-white animate-spin" />Pushing…</>
+                  : selectedForJira.size > 0 ? `Push ${selectedForJira.size} to Jira` : "Push to Jira"}
+              </button>
+              {jiraError && <span className="text-xs text-brand-red">{jiraError}</span>}
+            </div>
+          )}
           {page.annotations.map((a: Annotation) => (
-            <button key={a.id} onClick={() => onSelectAnnotation(a)}
-              className="bg-brand-white border border-brand-border rounded-lg px-4 py-3 cursor-pointer text-left flex items-center gap-3">
-              <div className="w-[26px] h-[26px] rounded-full shrink-0 flex items-center justify-center text-xs font-extrabold" style={{ background: SEV[a.severity]?.color || "#e40046", color: SEV[a.severity]?.pinText || "#ffffff" }}>{a.number}</div>
-              <div className="flex-1 min-w-0">
-                <span className="text-[11px] font-bold uppercase tracking-[0.05em] mr-2" style={{ color: CAT[a.category]?.text || CAT[a.category]?.color }}>{CAT[a.category]?.label || a.category}</span>
-                <span className="text-sm font-semibold text-brand-ink">{a.title}</span>
-              </div>
+            <div key={a.id}
+              className="bg-brand-white border border-brand-border rounded-lg px-4 py-3 flex items-center gap-3">
+              {!readonly && jiraConfigured && !a.jiraKey && (
+                <input type="checkbox" checked={selectedForJira.has(a.id)} onChange={() => toggleForJira(a.id)}
+                  onClick={e => e.stopPropagation()} className="shrink-0 w-4 h-4 cursor-pointer" />
+              )}
+              <button onClick={() => onSelectAnnotation(a)} className="flex-1 min-w-0 flex items-center gap-3 bg-transparent border-none cursor-pointer text-left p-0">
+                <div className="w-[26px] h-[26px] rounded-full shrink-0 flex items-center justify-center text-xs font-extrabold" style={{ background: SEV[a.severity]?.color || "#e40046", color: SEV[a.severity]?.pinText || "#ffffff" }}>{a.number}</div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.05em] mr-2" style={{ color: CAT[a.category]?.text || CAT[a.category]?.color }}>{CAT[a.category]?.label || a.category}</span>
+                  <span className="text-sm font-semibold text-brand-ink">{a.title}</span>
+                </div>
+              </button>
+              {a.jiraKey && (
+                <a href={a.jiraUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                  className="text-xs font-bold shrink-0 no-underline px-2 py-1 rounded" style={{ color: "#0052cc", background: "#0052cc14" }}>
+                  🔗 {a.jiraKey}
+                </a>
+              )}
               <span className="text-xs text-brand-muted shrink-0">{a.severity}</span>
-            </button>
+            </div>
           ))}
         </div>
       )}

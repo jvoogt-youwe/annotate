@@ -4,10 +4,11 @@ import type { Annotation, DataSource, Device, Page } from "../../lib/types";
 import { AnnotatedScreenshot } from "./AnnotatedScreenshot";
 
 // ─── PAGE EDITOR ──────────────────────────────────────────────────────────────
-export function PageEditor({ page, onUpdate, onMetaUpdate, password, readonly, highlightedAnnotationId, onSelectAnnotation, dataSources }: {
+export function PageEditor({ page, onUpdate, onMetaUpdate, password, readonly, highlightedAnnotationId, onSelectAnnotation, dataSources, jiraConfigured, onPushToJira }: {
   page: Page; onUpdate: (p: Page) => void; onMetaUpdate: (name: string, url: string, device: Device) => void;
   password: string | null; readonly: boolean; highlightedAnnotationId: string | null;
   onSelectAnnotation: (a: Annotation) => void; dataSources: DataSource[];
+  jiraConfigured: boolean; onPushToJira: (annotationIds: string[]) => Promise<any>;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(page.name);
@@ -55,7 +56,7 @@ export function PageEditor({ page, onUpdate, onMetaUpdate, password, readonly, h
           </>
         )}
       </div>
-      <AnnotatedScreenshot page={page} onUpdate={onUpdate} password={password} readonly={readonly} highlightedAnnotationId={highlightedAnnotationId} onSelectAnnotation={onSelectAnnotation} dataSources={dataSources} />
+      <AnnotatedScreenshot page={page} onUpdate={onUpdate} password={password} readonly={readonly} highlightedAnnotationId={highlightedAnnotationId} onSelectAnnotation={onSelectAnnotation} dataSources={dataSources} jiraConfigured={jiraConfigured} onPushToJira={onPushToJira} />
     </div>
   );
 }

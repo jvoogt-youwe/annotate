@@ -26,6 +26,8 @@ export interface Annotation {
   source?: "ai" | "manual";
   aiFeedback?: "up" | "down";
   attachments?: Attachment[];
+  jiraKey?: string;
+  jiraUrl?: string;
 }
 
 export interface Page {

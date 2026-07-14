@@ -41,6 +41,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   );
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState("");
+  const [jiraConfigured, setJiraConfigured] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -71,6 +72,45 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
       })
       .catch(() => { setError("Report not found."); setLoading(false); });
   }, [id]);
+
+  useEffect(() => {
+    if (!report || !password || !scope) { setJiraConfigured(false); return; }
+    const clientId = report.clientId || "legacy";
+    const allowed = scope.role === "admin" || (scope.role === "client" && scope.clientId === clientId);
+    if (!allowed || clientId === "legacy") { setJiraConfigured(false); return; }
+    fetch(`/api/clients/${clientId}/jira`, { headers: { "x-audit-password": password } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setJiraConfigured(!!data?.configured))
+      .catch(() => setJiraConfigured(false));
+  }, [report?.clientId, password, scope]);
+
+  async function pushFindingsToJira(pageId: string, annotationIds: string[]) {
+    if (!password || !report) return { results: [] };
+    const shareUrl = `${window.location.origin}/report/${id}?view=1`;
+    const res = await fetch("/api/jira/push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-audit-password": password },
+      body: JSON.stringify({ reportId: id, pageId, annotationIds, shareUrl }),
+    });
+    const data = await res.json();
+    if (res.ok && data.results) {
+      setReport(prev => {
+        if (!prev) return prev;
+        const pages = prev.pages.map((p: Page) => {
+          if (p.id !== pageId) return p;
+          return {
+            ...p,
+            annotations: p.annotations.map((a: Annotation) => {
+              const r = data.results.find((x: any) => x.annotationId === a.id);
+              return r?.ok ? { ...a, jiraKey: r.jiraKey, jiraUrl: r.jiraUrl } : a;
+            }),
+          };
+        });
+        return { ...prev, pages };
+      });
+    }
+    return data;
+  }
 
   function updatePage(updatedPage: Page) {
     if (!report) return;
@@ -315,6 +355,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
           clientId={reportClientId}
           password={password}
           onClose={() => setSettingsOpen(false)}
+          onJiraConfigChange={setJiraConfigured}
         />
       )}
 
@@ -352,6 +393,8 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
               highlightedAnnotationId={highlightedAnnotationId}
               onSelectAnnotation={selectAnnotation}
               dataSources={report.dataSources || []}
+              jiraConfigured={jiraConfigured}
+              onPushToJira={annotationIds => pushFindingsToJira(activePage.id, annotationIds)}
             />
           ) : (
             <p className="text-brand-muted text-sm">Select a page from the sidebar.</p>
@@ -374,6 +417,8 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
               isNew={!activePage?.annotations?.some((a: Annotation) => a.id === currentSelected.id)}
               onClientNotesSaved={(annotationId, notes) => activePage && handleClientNotesSaved(activePage.id, annotationId, notes)}
               saving={saving}
+              jiraConfigured={jiraConfigured}
+              onPushToJira={annotationId => activePage ? pushFindingsToJira(activePage.id, [annotationId]) : Promise.resolve({ results: [] })}
             />
           )}
         </div>
