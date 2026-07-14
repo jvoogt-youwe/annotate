@@ -2,6 +2,8 @@
 
 Internal Youwe Agency tool for auditing client websites. Paste a client URL, capture a desktop + mobile screenshot, add further pages manually, and use Claude's vision API to generate UX / Accessibility / CRO / Performance findings pinned directly on the screenshot. Findings are compiled into a shareable, client-facing report.
 
+![Youwe Annotate screenshot](public/thumbnail.png)
+
 ## Tech stack
 
 - [Next.js](https://nextjs.org) (App Router) + React + TypeScript
