@@ -1,6 +1,12 @@
 import { CAT, SEV } from "./theme";
 import type { Report, Page, Annotation } from "./types";
 
+// A bare "www.example.com" has no scheme, so <a href> treats it as a relative
+// path instead of navigating offsite — prefix a scheme when missing.
+function withProtocol(url: string) {
+  return /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`;
+}
+
 export function generateExportHTML(report: Report, shareUrl: string): string {
   const date = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const totalAnnotations = report.pages.reduce((n: number, p: Page) => n + p.annotations.length, 0);
@@ -32,7 +38,7 @@ export function generateExportHTML(report: Report, shareUrl: string): string {
           ${a.attachments && a.attachments.length > 0 ? `<div class="finding-attachments">${a.attachments.map(att =>
             att.type === "image"
               ? `<a href="${att.url}" target="_blank" rel="noopener noreferrer"><img src="${att.url}" alt="Attachment"/></a>`
-              : `<a class="link-attachment" href="${att.url}" target="_blank" rel="noopener noreferrer">🔗 ${att.label || att.url}</a>`
+              : `<a class="link-attachment" href="${withProtocol(att.url)}" target="_blank" rel="noopener noreferrer">🔗 ${att.label || att.url}</a>`
           ).join("")}</div>` : ""}
         </div>
       </div>`).join("");

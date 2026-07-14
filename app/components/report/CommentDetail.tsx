@@ -5,6 +5,12 @@ import type { Annotation, Attachment, Category, Page, Severity } from "../../lib
 
 const AUTOSAVE_DEBOUNCE_MS = 600;
 
+// A bare "www.google.com" or "google.com" has no scheme, so <a href> treats it as
+// a relative path instead of navigating offsite — prefix a scheme when missing.
+function withProtocol(url: string) {
+  return /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`;
+}
+
 // ─── COMMENT DETAIL (side panel, editable annotation view — shared by both the ──
 // ─── "Annotations" list selection and clicking a pin directly on the screenshot) ──
 export function CommentDetail({ annotation, page, onClose, onSave, onDelete, readonly, reportId, password, onClientNotesSaved, isNew, saving }: {
@@ -85,7 +91,7 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
   function addLink() {
     const url = linkUrl.trim();
     if (!url) return;
-    setAttachments(prev => [...prev, { id: genId(), type: "link", url }]);
+    setAttachments(prev => [...prev, { id: genId(), type: "link", url: withProtocol(url) }]);
     setLinkUrl("");
   }
 
@@ -261,7 +267,7 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
                 {linkAttachments.map(a => (
                   <div key={a.id} className="flex items-center gap-2.5 bg-brand-off-white rounded-lg px-3 py-2 border border-brand-border">
                     <span className="shrink-0 text-brand-muted text-sm">🔗</span>
-                    <a href={a.url} target="_blank" rel="noopener noreferrer"
+                    <a href={withProtocol(a.url)} target="_blank" rel="noopener noreferrer"
                       className="text-[13px] text-brand-blue no-underline overflow-hidden text-ellipsis whitespace-nowrap flex-1 min-w-0">
                       {a.label || a.url}
                     </a>

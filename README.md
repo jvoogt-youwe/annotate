@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Youwe Annotate
 
-## Getting Started
+Internal Youwe Agency tool for auditing client websites. Paste a client URL, capture a desktop + mobile screenshot, add further pages manually, and use Claude's vision API to generate UX / Accessibility / CRO / Performance findings pinned directly on the screenshot. Findings are compiled into a shareable, client-facing report.
 
-First, run the development server:
+## Tech stack
+
+- [Next.js](https://nextjs.org) (App Router) + React + TypeScript
+- [Tailwind CSS v4](https://tailwindcss.com)
+- [Puppeteer](https://pptr.dev) (`puppeteer-core` + `@sparticuz/chromium`) for screenshot capture
+- [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) for report/screenshot storage
+- [Anthropic API](https://docs.anthropic.com) (`claude-sonnet-4-6`) for vision-based finding generation
+
+## Prerequisites
+
+- Node.js 20+
+- npm, pnpm, yarn, or bun
+
+## Getting started
+
+1. Install dependencies:
+
+   ```bash
+   npm install
+   # or pnpm install / yarn install / bun install
+   ```
+
+2. Create a `.env.local` file in the repo root with the following variables:
+
+   | Variable | Description |
+   |---|---|
+   | `ANTHROPIC_API_KEY` | Anthropic API key used for AI finding/overview generation |
+   | `AUDIT_PASSWORD` | Master/admin password — sees and manages all clients and reports |
+   | `BLOB_READ_WRITE_TOKEN` | Vercel Blob read/write token for report and screenshot storage |
+
+   Get actual values from a teammate through a secure channel — never via git.
+
+3. Run the development server:
+
+   ```bash
+   npm run dev
+   ```
+
+4. Open [http://localhost:3000](http://localhost:3000).
+
+Individual client passwords are created and reset in-app under "Manage clients" (admin only), not via environment variables.
+
+## Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the development server |
+| `npm run build` | Create a production build |
+| `npm run start` | Start the production server (after `build`) |
+
+## Deployment
+
+Hosted on [Vercel](https://vercel.com), which also provides the Blob storage in use. The repo lives on Youwe's GitHub Enterprise instance, which Vercel's GitHub integration does not support — there is **no auto-deploy on push**. Deploy manually from the repo root:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npx vercel --prod --yes
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Each Vercel project needs the same three environment variables set. Multiple team members' deployments currently share one Blob store and one Anthropic API key.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+See [AGENTS.md](./AGENTS.md) for a detailed map of key files, conventions, and architectural notes (auth model, capture pipeline, report data flow, etc.) — it doubles as the project's contributor documentation.
 
-## Learn More
+## Learn more
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Vercel Blob Documentation](https://vercel.com/docs/storage/vercel-blob)
+- [Anthropic API Documentation](https://docs.anthropic.com)
