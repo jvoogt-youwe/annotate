@@ -21,6 +21,7 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
     hypothesis: annotation.hypothesis || "",
   });
   const [attachments, setAttachments] = useState<Attachment[]>(annotation.attachments || []);
+  const [aiFeedback, setAiFeedback] = useState(annotation.aiFeedback);
   const [clientNotes, setClientNotes] = useState(annotation.clientNotes || "");
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
@@ -31,7 +32,14 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
 
   function save() {
     if (!form.title.trim()) return;
-    onSave({ ...annotation, ...form, clientNotes, attachments });
+    onSave({ ...annotation, ...form, clientNotes, attachments, aiFeedback });
+  }
+
+  function setFeedback(value: "up" | "down") {
+    if (isNew) return;
+    const next = aiFeedback === value ? undefined : value;
+    setAiFeedback(next);
+    onSave({ ...annotation, ...form, clientNotes, attachments, aiFeedback: next });
   }
 
   async function handleImageUpload(file: File) {
@@ -266,6 +274,41 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
             </button>
           )}
         </div>
+
+        {/* AI feedback — AI-sourced findings only */}
+        {annotation.source === "ai" && !isNew && (
+          <div className="border-t border-brand-border pt-[18px]">
+            <label className={LBL_CLASS}>Was this AI suggestion accurate?</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setFeedback("up")}
+                disabled={readonly}
+                title="Mark as a good AI suggestion"
+                className="flex-1 rounded-lg border-none py-2.5 text-[13px] font-bold flex items-center justify-center gap-1.5 transition-colors duration-150"
+                style={{
+                  background: aiFeedback === "up" ? "#00c48c1e" : "#f0f0f2",
+                  color: aiFeedback === "up" ? "#008760" : "#767676",
+                  cursor: readonly ? "default" : "pointer",
+                }}>
+                👍 Agree
+              </button>
+              <button
+                type="button"
+                onClick={() => setFeedback("down")}
+                disabled={readonly}
+                title="Mark as an inaccurate AI suggestion"
+                className="flex-1 rounded-lg border-none py-2.5 text-[13px] font-bold flex items-center justify-center gap-1.5 transition-colors duration-150"
+                style={{
+                  background: aiFeedback === "down" ? "#e400461e" : "#f0f0f2",
+                  color: aiFeedback === "down" ? "#e40046" : "#767676",
+                  cursor: readonly ? "default" : "pointer",
+                }}>
+                👎 Disagree
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Footer — edit mode only */}

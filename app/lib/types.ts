@@ -24,6 +24,7 @@ export interface Annotation {
   hypothesis: string;
   clientNotes?: string;
   source?: "ai" | "manual";
+  aiFeedback?: "up" | "down";
   attachments?: Attachment[];
 }
 
