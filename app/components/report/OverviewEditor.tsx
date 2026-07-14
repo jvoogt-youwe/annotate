@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
 import { LBL_CLASS } from "../../lib/theme";
-import type { Overview, Report } from "../../lib/types";
+import type { DataSource, Overview, Report } from "../../lib/types";
+import { DataSourcesPanel } from "./DataSourcesPanel";
 
 // ─── OVERVIEW EDITOR ─────────────────────────────────────────────────────────
-export function OverviewEditor({ overview, onSave, readonly, report, password }: {
+export function OverviewEditor({ overview, onSave, readonly, report, password, onUpdateDataSources }: {
   overview: Overview | undefined; onSave: (o: Overview) => void; readonly: boolean; report: Report; password: string | null;
+  onUpdateDataSources: (sources: DataSource[]) => void;
 }) {
   const [form, setForm] = useState({
     summary: overview?.summary || "",
@@ -101,6 +103,8 @@ export function OverviewEditor({ overview, onSave, readonly, report, password }:
             </div>
           )}
         </div>
+
+        <DataSourcesPanel dataSources={report.dataSources || []} onChange={onUpdateDataSources} readonly password={password} />
       </div>
     );
   }
@@ -140,6 +144,8 @@ export function OverviewEditor({ overview, onSave, readonly, report, password }:
             rows={4} className={taClass} />
         </div>
       </div>
+
+      <DataSourcesPanel dataSources={report.dataSources || []} onChange={onUpdateDataSources} readonly={false} password={password} />
     </div>
   );
 }

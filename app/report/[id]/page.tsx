@@ -4,7 +4,7 @@ import { use } from "react";
 
 import { DETAIL_W, LIST_W, genId } from "../../lib/theme";
 import { generateExportHTML } from "../../lib/exportHtml";
-import type { Annotation, Device, Overview, Page, Report } from "../../lib/types";
+import type { Annotation, DataSource, Device, Overview, Page, Report } from "../../lib/types";
 
 import { AddPageModal, type NewPageForm } from "../../components/report/AddPageModal";
 import { ReportHeader } from "../../components/report/ReportHeader";
@@ -187,6 +187,13 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
     saveTimer.current = setTimeout(() => saveReport(updated), 1200);
   }
 
+  function updateDataSources(dataSources: DataSource[]) {
+    if (!report) return;
+    const updated = { ...report, dataSources };
+    setReport(updated);
+    saveReport(updated);
+  }
+
   function closeComments() {
     setCommentsOpen(false);
   }
@@ -333,6 +340,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
               readonly={readonly}
               report={report}
               password={password}
+              onUpdateDataSources={updateDataSources}
             />
           ) : activePage ? (
             <PageEditor
@@ -343,6 +351,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
               readonly={readonly}
               highlightedAnnotationId={highlightedAnnotationId}
               onSelectAnnotation={selectAnnotation}
+              dataSources={report.dataSources || []}
             />
           ) : (
             <p className="text-brand-muted text-sm">Select a page from the sidebar.</p>
@@ -364,6 +373,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
               password={password}
               isNew={!activePage?.annotations?.some((a: Annotation) => a.id === currentSelected.id)}
               onClientNotesSaved={(annotationId, notes) => activePage && handleClientNotesSaved(activePage.id, annotationId, notes)}
+              saving={saving}
             />
           )}
         </div>

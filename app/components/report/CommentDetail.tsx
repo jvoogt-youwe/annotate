@@ -1,16 +1,19 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CAT, SEV, DETAIL_W, LBL_CLASS, FIELD_CLASS, genId } from "../../lib/theme";
 import type { Annotation, Attachment, Category, Page, Severity } from "../../lib/types";
 
+const AUTOSAVE_DEBOUNCE_MS = 600;
+
 // ─── COMMENT DETAIL (side panel, editable annotation view — shared by both the ──
 // ─── "Annotations" list selection and clicking a pin directly on the screenshot) ──
-export function CommentDetail({ annotation, page, onClose, onSave, onDelete, readonly, reportId, password, onClientNotesSaved, isNew }: {
+export function CommentDetail({ annotation, page, onClose, onSave, onDelete, readonly, reportId, password, onClientNotesSaved, isNew, saving }: {
   annotation: Annotation; page: Page | null | undefined; onClose: () => void;
   onSave: (a: Annotation) => void; onDelete: (id: string) => void;
   readonly: boolean; reportId: string; password: string | null;
   onClientNotesSaved: (annotationId: string, notes: string) => void;
   isNew?: boolean;
+  saving: boolean;
 }) {
   const [form, setForm] = useState({
     category: annotation.category || "UX",
@@ -28,19 +31,39 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const [dirty, setDirty] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function save() {
-    if (!form.title.trim()) return;
-    onSave({ ...annotation, ...form, clientNotes, attachments, aiFeedback });
-  }
+  // Autosave — mirrors the debounced save-on-change pattern used elsewhere in the
+  // report (page meta, overview) instead of requiring an explicit "Save" click,
+  // so edits aren't lost if the panel is closed mid-thought.
+  useEffect(() => {
+    if (readonly) return;
+    if (!mountedRef.current) { mountedRef.current = true; return; }
+    setDirty(true);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDirty(false);
+      if (!form.title.trim()) return; // nothing to persist yet — a title is required
+      onSave({ ...annotation, ...form, clientNotes, attachments, aiFeedback });
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.category, form.severity, form.title, form.detail, form.recommendation, attachments, aiFeedback, clientNotes]);
 
   function setFeedback(value: "up" | "down") {
-    if (isNew) return;
-    const next = aiFeedback === value ? undefined : value;
-    setAiFeedback(next);
-    onSave({ ...annotation, ...form, clientNotes, attachments, aiFeedback: next });
+    if (isNew || readonly) return;
+    setAiFeedback(prev => prev === value ? undefined : value);
   }
+
+  const statusText = readonly ? null
+    : !form.title.trim() ? "Add a title to save"
+    : dirty ? "Unsaved changes"
+    : saving ? "Saving…"
+    : "✓ Saved";
+  const statusColor = !form.title.trim() ? "#9a9a9a" : dirty ? "#a16707" : saving ? "#9a9a9a" : "#008760";
 
   async function handleImageUpload(file: File) {
     if (!password) return;
@@ -313,15 +336,14 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
 
       {/* Footer — edit mode only */}
       {!readonly && (
-        <div className="px-4 py-3.5 border-t border-brand-border flex gap-2.5 shrink-0">
-          <button onClick={save} disabled={!form.title.trim()}
-            className="flex-1 bg-brand-red text-brand-white border-none rounded-lg p-[11px] font-extrabold text-sm"
-            style={{ cursor: form.title.trim() ? "pointer" : "not-allowed", opacity: form.title.trim() ? 1 : 0.5 }}>
-            Save finding
-          </button>
+        <div className="px-4 py-3.5 border-t border-brand-border flex items-center justify-between gap-2.5 shrink-0">
+          <span className="flex-1 text-[15px] font-bold flex items-center gap-2" style={{ color: statusColor }}>
+            {dirty && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: statusColor }} />}
+            {statusText}
+          </span>
           {!isNew && (
             <button onClick={() => onDelete(annotation.id)}
-              className="bg-brand-off-white text-brand-red border-[1.5px] border-brand-border rounded-lg px-4 py-[11px] font-bold text-sm cursor-pointer">
+              className="bg-brand-off-white text-brand-red border-[1.5px] border-brand-border rounded-lg px-4 py-[11px] font-bold text-sm cursor-pointer shrink-0">
               Delete
             </button>
           )}

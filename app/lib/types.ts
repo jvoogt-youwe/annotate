@@ -43,6 +43,14 @@ export interface Overview {
   urgentFixes: string;
 }
 
+export interface DataSource {
+  id: string;
+  name: string;
+  url: string;
+  contentType: string;
+  uploadedAt: string;
+}
+
 export interface Report {
   id: string;
   siteName: string;
@@ -50,4 +58,5 @@ export interface Report {
   clientId?: string;
   pages: Page[];
   overview?: Overview;
+  dataSources?: DataSource[];
 }

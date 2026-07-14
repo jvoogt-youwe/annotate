@@ -1,15 +1,15 @@
 "use client";
 import { useRef, useState } from "react";
 import { CAT, SEV, genId } from "../../lib/theme";
-import type { Annotation, Page } from "../../lib/types";
+import type { Annotation, DataSource, Page } from "../../lib/types";
 
 // ─── ANNOTATED SCREENSHOT ─────────────────────────────────────────────────────
 export function AnnotatedScreenshot({
-  page, onUpdate, password, readonly, highlightedAnnotationId, onSelectAnnotation,
+  page, onUpdate, password, readonly, highlightedAnnotationId, onSelectAnnotation, dataSources,
 }: {
   page: Page; onUpdate: (p: Page) => void; password: string | null;
   readonly: boolean; highlightedAnnotationId: string | null;
-  onSelectAnnotation: (a: Annotation) => void;
+  onSelectAnnotation: (a: Annotation) => void; dataSources: DataSource[];
 }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -49,7 +49,7 @@ export function AnnotatedScreenshot({
       const res = await fetch("/api/ai-findings", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-audit-password": password },
-        body: JSON.stringify({ screenshotUrl: page.screenshotUrl, pageName: page.name, device: page.device }),
+        body: JSON.stringify({ screenshotUrl: page.screenshotUrl, pageName: page.name, device: page.device, dataSources }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -94,6 +94,9 @@ export function AnnotatedScreenshot({
           </button>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && handleUpload(e.target.files[0])} />
           <span className="text-[13px] text-brand-muted">Click the screenshot to add a pin</span>
+          {dataSources.length > 0 && (
+            <span className="text-[13px] text-brand-muted">· referencing {dataSources.length} data source{dataSources.length !== 1 ? "s" : ""}</span>
+          )}
         </div>
       )}
 
