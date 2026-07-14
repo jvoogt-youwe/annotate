@@ -134,11 +134,12 @@ export function AnnotatedScreenshot({
             title={draggingId ? undefined : a.title}
             onMouseDown={e => { if (readonly) return; e.stopPropagation(); setDragMoved(false); setDraggingId(a.id); }}
             onClick={e => { e.stopPropagation(); if (!dragMoved) { setDrawerAnnotation(a); setIsNew(false); } }}
-            className="absolute w-[30px] h-[30px] rounded-full text-brand-white border-[2.5px] border-white text-[13px] font-extrabold flex items-center justify-center leading-none select-none transition-[transform,box-shadow] duration-[180ms]"
+            className="absolute w-[30px] h-[30px] rounded-full border-[2.5px] border-white text-[13px] font-extrabold flex items-center justify-center leading-none select-none transition-[transform,box-shadow] duration-[180ms]"
             style={{
               left: `${a.x}%`, top: `${a.y}%`,
               transform: highlightedAnnotationId === a.id ? "translate(-50%,-50%) scale(1.3)" : "translate(-50%,-50%)",
               background: SEV[a.severity]?.color || "#e40046",
+              color: SEV[a.severity]?.pinText || "#ffffff",
               boxShadow: highlightedAnnotationId === a.id
                 ? `0 0 0 4px white, 0 0 0 8px ${SEV[a.severity]?.color || "#e40046"}`
                 : "0 2px 8px rgba(0,0,0,0.3)",
@@ -155,9 +156,9 @@ export function AnnotatedScreenshot({
           {page.annotations.map((a: Annotation) => (
             <button key={a.id} onClick={() => { setDrawerAnnotation(a); setIsNew(false); }}
               className="bg-brand-white border border-brand-border rounded-lg px-4 py-3 cursor-pointer text-left flex items-center gap-3">
-              <div className="w-[26px] h-[26px] rounded-full shrink-0 flex items-center justify-center text-xs font-extrabold text-brand-white" style={{ background: SEV[a.severity]?.color || "#e40046" }}>{a.number}</div>
+              <div className="w-[26px] h-[26px] rounded-full shrink-0 flex items-center justify-center text-xs font-extrabold" style={{ background: SEV[a.severity]?.color || "#e40046", color: SEV[a.severity]?.pinText || "#ffffff" }}>{a.number}</div>
               <div className="flex-1 min-w-0">
-                <span className="text-[11px] font-bold uppercase tracking-[0.05em] mr-2" style={{ color: CAT[a.category]?.color }}>{CAT[a.category]?.label || a.category}</span>
+                <span className="text-[11px] font-bold uppercase tracking-[0.05em] mr-2" style={{ color: CAT[a.category]?.text || CAT[a.category]?.color }}>{CAT[a.category]?.label || a.category}</span>
                 <span className="text-sm font-semibold text-brand-ink">{a.title}</span>
               </div>
               <span className="text-xs text-brand-muted shrink-0">{a.severity}</span>

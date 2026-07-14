@@ -28,7 +28,7 @@ export function AddPageModal({
           <p className="text-[15px] font-bold text-brand-ink">Add new page</p>
           <button onClick={() => !capturing && onClose()} disabled={capturing}
             className="bg-transparent border-none text-[22px] leading-none px-1.5 py-0.5"
-            style={{ color: capturing ? "#ccc" : "#9a9a9a", cursor: capturing ? "not-allowed" : "pointer" }}>×</button>
+            style={{ color: capturing ? "#ccc" : "#767676", cursor: capturing ? "not-allowed" : "pointer" }}>×</button>
         </div>
         <div className="flex flex-col gap-3.5">
           <div>

@@ -1,15 +1,15 @@
 "use client";
 import { useState, useEffect } from "react";
+import { YouweLogo } from "./components/YouweLogo";
 
 const B = {
   red: "#e40046", ink: "#151515", inkMid: "#2a2a2a",
-  white: "#ffffff", offWhite: "#f7f7f8", muted: "#9a9a9a",
+  white: "#ffffff", offWhite: "#f7f7f8",
+  // muted: AA-safe (>=4.5:1) on light/white surfaces. mutedOnDark: the lighter
+  // brand grey, used where the surface is dark (it doesn't clear 4.5:1 on white).
+  muted: "#767676", mutedOnDark: "#9a9a9a",
   border: "#e8e8e8", blue: "#76B4FD",
 };
-
-function YouweLogo({ height = 36 }: { height?: number }) {
-  return <img src="/youwe-logo.svg" height={height} alt="Youwe" />;
-}
 
 function ConfirmDeleteModal({ siteName, onCancel, onConfirm, deleting }: { siteName: string; onCancel: () => void; onConfirm: () => void; deleting: boolean }) {
   return (
@@ -45,7 +45,7 @@ function PasswordGate({ onAuth }: { onAuth: (p: string) => void }) {
       <div style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", borderRadius: 16, padding: 40, maxWidth: 400, width: "100%" }}>
         <YouweLogo height={32} />
         <h1 style={{ fontSize: 22, fontWeight: 900, color: B.white, marginTop: 24, marginBottom: 6 }}>UX Annotate</h1>
-        <p style={{ fontSize: 13, color: B.muted, marginBottom: 28 }}>Enter the team password to continue.</p>
+        <p style={{ fontSize: 13, color: B.mutedOnDark, marginBottom: 28 }}>Enter the team password to continue.</p>
         <input
           type="password" placeholder="Password"
           value={val} onChange={e => setVal(e.target.value)}
@@ -148,13 +148,13 @@ export default function Home() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 0", borderBottom: "1px solid #2a2a2a" }}>
             <YouweLogo height={45} />
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: B.muted, textTransform: "uppercase" }}>UX Annotate</span>
-              <button onClick={() => { sessionStorage.removeItem("annotate-password"); setPassword(null); }} style={{ fontSize: 12, color: B.muted, background: "none", border: "none", cursor: "pointer" }}>Sign out</button>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: B.mutedOnDark, textTransform: "uppercase" }}>UX Annotate</span>
+              <button onClick={() => { sessionStorage.removeItem("annotate-password"); setPassword(null); }} style={{ fontSize: 12, color: B.mutedOnDark, background: "none", border: "none", cursor: "pointer" }}>Sign out</button>
             </div>
           </div>
           <div style={{ padding: "32px 0 36px" }}>
             <h1 style={{ fontSize: 28, fontWeight: 900, color: B.white, letterSpacing: "-0.02em", lineHeight: 1.15, marginBottom: 6 }}>Youwe Annotate<span style={{ color: B.red }}>.</span></h1>
-            <p style={{ fontSize: 14, color: B.muted, marginBottom: 24, maxWidth: 520 }}>Enter a client URL to capture a homepage screenshot and build an annotated report. Add more pages manually as you go.</p>
+            <p style={{ fontSize: 14, color: B.mutedOnDark, marginBottom: 24, maxWidth: 520 }}>Enter a client URL to capture a homepage screenshot and build an annotated report. Add more pages manually as you go.</p>
             <div style={{ display: "flex", gap: 10, maxWidth: 680 }}>
               <input
                 type="url" placeholder="https://client-site.co.uk"
@@ -174,7 +174,7 @@ export default function Home() {
             {status === "loading" && (
               <div style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ width: 18, height: 18, border: `3px solid #2a2a2a`, borderTop: `3px solid ${B.red}`, borderRadius: "50%", animation: "spin 0.75s linear infinite", flexShrink: 0 }} />
-                <p style={{ fontSize: 13, color: B.muted }}>{loadingMsg}</p>
+                <p style={{ fontSize: 13, color: B.mutedOnDark }}>{loadingMsg}</p>
               </div>
             )}
             {status === "error" && (

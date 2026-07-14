@@ -50,7 +50,7 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
       {/* Header */}
       <div className="flex items-center justify-between px-4 h-14 border-b border-brand-border shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[13px] font-extrabold text-brand-white" style={{ background: SEV[form.severity as Severity]?.color || "#e40046" }}>
+          <div className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[13px] font-extrabold" style={{ background: SEV[form.severity as Severity]?.color || "#e40046", color: SEV[form.severity as Severity]?.pinText || "#ffffff" }}>
             {annotation.number}
           </div>
           <div className="min-w-0">
@@ -71,10 +71,10 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
             <div className="flex gap-2 items-center flex-wrap">
               <span
                 className="text-[11px] font-bold px-[7px] py-0.5 rounded uppercase tracking-[0.04em]"
-                style={{ background: CAT[annotation.category]?.accent || "#eee", color: CAT[annotation.category]?.color || "#151515" }}>
+                style={{ background: CAT[annotation.category]?.accent || "#eee", color: CAT[annotation.category]?.text || "#151515" }}>
                 {CAT[annotation.category]?.label || annotation.category}
               </span>
-              <span className="text-xs font-bold" style={{ color: SEV[annotation.severity]?.color || "#9a9a9a" }}>{annotation.severity}</span>
+              <span className="text-xs font-bold" style={{ color: SEV[annotation.severity]?.text || "#767676" }}>{annotation.severity}</span>
             </div>
             <p className="text-[15px] font-bold text-brand-ink leading-normal">{annotation.title}</p>
             {annotation.detail && <div><label className={LBL_CLASS}>Observed</label><p className={fieldBlockClass}>{annotation.detail}</p></div>}
@@ -97,7 +97,7 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
                 <label className={LBL_CLASS}>Importance</label>
                 <select value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value as Severity }))}
                   className={`${FIELD_CLASS} cursor-pointer`}
-                  style={{ border: `1.5px solid ${SEV[form.severity as Severity]?.color || "#e8e8e8"}`, color: SEV[form.severity as Severity]?.color || "#151515" }}>
+                  style={{ border: `1.5px solid ${SEV[form.severity as Severity]?.color || "#e8e8e8"}`, color: SEV[form.severity as Severity]?.text || "#151515" }}>
                   {Object.keys(SEV).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>

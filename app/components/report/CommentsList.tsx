@@ -40,13 +40,13 @@ export function CommentsList({ page, selectedId, onSelect, highlightedId, onHigh
                 borderLeft: `3px solid ${isSelected ? (SEV[a.severity]?.color || "#e40046") : "transparent"}`,
               }}>
               <div
-                className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[13px] font-extrabold text-brand-white mt-px transition-transform duration-[120ms]"
-                style={{ background: SEV[a.severity]?.color || "#e40046", transform: isHL ? "scale(1.1)" : "scale(1)" }}>{a.number}</div>
+                className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[13px] font-extrabold mt-px transition-transform duration-[120ms]"
+                style={{ background: SEV[a.severity]?.color || "#e40046", color: SEV[a.severity]?.pinText || "#ffffff", transform: isHL ? "scale(1.1)" : "scale(1)" }}>{a.number}</div>
               <div className="flex-1 min-w-0">
                 <div className="mb-1">
                   <span
                     className="text-[11px] font-bold px-[7px] py-0.5 rounded uppercase tracking-[0.04em]"
-                    style={{ background: CAT[a.category]?.accent || "#eee", color: CAT[a.category]?.color || "#151515" }}>
+                    style={{ background: CAT[a.category]?.accent || "#eee", color: CAT[a.category]?.text || "#151515" }}>
                     {CAT[a.category]?.label || a.category}
                   </span>
                 </div>

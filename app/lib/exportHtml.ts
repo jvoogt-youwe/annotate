@@ -18,11 +18,11 @@ export function generateExportHTML(report: Report, shareUrl: string): string {
   const pagesSections = report.pages.map((page: Page) => {
     const list = page.annotations.map((a: Annotation) => `
       <div class="finding">
-        <div class="finding-num" style="background:${SEV[a.severity]?.color || "#e40046"}">${a.number}</div>
+        <div class="finding-num" style="background:${SEV[a.severity]?.color || "#e40046"};color:${SEV[a.severity]?.pinText || "#fff"}">${a.number}</div>
         <div class="finding-body">
           <div class="finding-meta">
-            <span class="cat" style="color:${CAT[a.category]?.color};background:${CAT[a.category]?.color}18">${CAT[a.category]?.label || a.category}</span>
-            <span class="sev" style="color:${SEV[a.severity]?.color}">${a.severity}</span>
+            <span class="cat" style="color:${CAT[a.category]?.text};background:${CAT[a.category]?.color}18">${CAT[a.category]?.label || a.category}</span>
+            <span class="sev" style="color:${SEV[a.severity]?.text}">${a.severity}</span>
           </div>
           <p class="finding-title">${a.title}</p>
           ${a.detail ? `<p class="finding-detail">${a.detail}</p>` : ""}
@@ -33,7 +33,7 @@ export function generateExportHTML(report: Report, shareUrl: string): string {
       </div>`).join("");
 
     const pins = page.annotations.map((a: Annotation) => `
-      <div class="pin" style="left:${a.x}%;top:${a.y}%;background:${SEV[a.severity]?.color || "#e40046"}">${a.number}</div>`).join("");
+      <div class="pin" style="left:${a.x}%;top:${a.y}%;background:${SEV[a.severity]?.color || "#e40046"};color:${SEV[a.severity]?.pinText || "#fff"}">${a.number}</div>`).join("");
 
     return `
       <div class="page-section">
@@ -56,7 +56,7 @@ export function generateExportHTML(report: Report, shareUrl: string): string {
 body{font-family:'Helvetica Neue',Arial,sans-serif;background:#f7f7f8;color:#151515}
 .page{max-width:1100px;margin:0 auto;padding:40px 32px 80px}
 .header{background:#151515;border-radius:16px;padding:36px;margin-bottom:32px}
-.meta{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#e40046;margin-bottom:8px}
+.meta{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#ff0451;margin-bottom:8px}
 h1{font-size:30px;font-weight:900;color:#fff;letter-spacing:-.02em;margin-bottom:4px}
 .url{font-size:14px;color:#76B4FD;display:block;margin-bottom:12px}
 .summary-line{font-size:14px;color:#aaa;margin-bottom:6px}
@@ -64,7 +64,7 @@ h1{font-size:30px;font-weight:900;color:#fff;letter-spacing:-.02em;margin-bottom
 .page-section{background:#fff;border-radius:12px;border:1px solid #e8e8e8;overflow:hidden;margin-bottom:28px}
 .page-header{padding:16px 20px;border-bottom:1px solid #e8e8e8;display:flex;align-items:center;justify-content:space-between}
 .page-header h2{font-size:16px;font-weight:700}
-.device-badge{font-size:12px;color:#9a9a9a;background:#f7f7f8;padding:4px 10px;border-radius:20px;border:1px solid #e8e8e8}
+.device-badge{font-size:12px;color:#767676;background:#f7f7f8;padding:4px 10px;border-radius:20px;border:1px solid #e8e8e8}
 .screenshot-wrap{position:relative;border-bottom:1px solid #e8e8e8}
 .screenshot-wrap img{width:100%;display:block}
 .pin{position:absolute;width:28px;height:28px;border-radius:50%;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3)}
@@ -81,7 +81,7 @@ h1{font-size:30px;font-weight:900;color:#fff;letter-spacing:-.02em;margin-bottom
 .finding-hypothesis{font-size:13px;color:#555;font-style:italic;line-height:1.6;margin-bottom:5px}
 .finding-notes{font-size:13px;color:#7a6000;background:#fffbe6;border-left:3px solid #f0d060;padding:6px 10px;border-radius:0 6px 6px 0;line-height:1.6}
 .footer{margin-top:48px;padding-top:24px;border-top:1px solid #e8e8e8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
-.ov-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9a9a9a;margin-bottom:6px}
+.ov-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#767676;margin-bottom:6px}
 .ov-text{font-size:14px;color:#333;line-height:1.7}
 @media print{body{background:#fff}.page{padding:20px}}
 </style></head><body><div class="page">
@@ -91,12 +91,12 @@ h1{font-size:30px;font-weight:900;color:#fff;letter-spacing:-.02em;margin-bottom
   <a class="url" href="${report.url}">${report.url}</a>
   <p class="summary-line">${report.pages.length} pages · ${totalAnnotations} findings</p>
 </div>
-${shareUrl ? `<div class="share"><p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#9a9a9a;margin-bottom:4px">Live report link</p><p style="font-size:13px;color:#76B4FD;font-family:monospace">${shareUrl}</p></div>` : ""}
+${shareUrl ? `<div class="share"><p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#767676;margin-bottom:4px">Live report link</p><p style="font-size:13px;color:#036eeb;font-family:monospace">${shareUrl}</p></div>` : ""}
 ${overviewSection}
 ${pagesSections}
 <div class="footer">
   <div style="font-size:18px;font-weight:900;letter-spacing:-.02em">youwe<span style="color:#e40046">.</span></div>
-  <div style="font-size:13px;color:#9a9a9a">Confidential · Prepared by Youwe Agency · ${date}</div>
+  <div style="font-size:13px;color:#767676">Confidential · Prepared by Youwe Agency · ${date}</div>
 </div>
 </div></body></html>`;
 }
