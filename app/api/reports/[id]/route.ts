@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put, list, del } from "@vercel/blob";
-
-function auth(req: NextRequest) {
-  return req.headers.get("x-audit-password") === process.env.AUDIT_PASSWORD;
-}
+import { resolveScopeFromRequest, canAccessReport } from "@/app/lib/auth";
 
 async function findReportBlob(id: string) {
   const { blobs } = await list({ prefix: `reports/${id}.json`, token: process.env.BLOB_READ_WRITE_TOKEN });
@@ -60,7 +57,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!auth(req)) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  const scope = await resolveScopeFromRequest(req);
+  if (!scope) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const { id } = await params;
   try {
     const blob = await findReportBlob(id);
@@ -68,6 +66,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     const res = await fetch(blob.url);
     const report = await res.json();
+    if (!canAccessReport(scope, report)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const screenshotUrls = (report.pages || []).map((p: any) => p.screenshotUrl).filter(Boolean);
 
     await del([blob.url, ...screenshotUrls], { token: process.env.BLOB_READ_WRITE_TOKEN });
@@ -79,10 +78,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!auth(req)) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  const scope = await resolveScopeFromRequest(req);
+  if (!scope) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const { id } = await params;
   try {
+    const blob = await findReportBlob(id);
+    if (!blob) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const existingRes = await fetch(blob.url);
+    const existing = await existingRes.json();
+    if (!canAccessReport(scope, existing)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
     const body = await req.json();
+    if (scope.role === "client") body.clientId = scope.clientId;
     await put(`reports/${id}.json`, JSON.stringify(body), {
       access: "public",
       contentType: "application/json",

@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { launchBrowser, captureScreenshot } from "@/app/lib/capture";
+import { isAuthenticated } from "@/app/lib/auth";
 
 export const maxDuration = 120;
 
-function auth(req: NextRequest) {
-  return req.headers.get("x-audit-password") === process.env.AUDIT_PASSWORD;
-}
-
 export async function POST(req: NextRequest) {
-  if (!auth(req)) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  if (!(await isAuthenticated(req))) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   try {
     const body = await req.json();
     let url: string = body.url || "";

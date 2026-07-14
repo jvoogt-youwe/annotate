@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-function auth(req: NextRequest) {
-  return req.headers.get("x-audit-password") === process.env.AUDIT_PASSWORD;
-}
+import { isAuthenticated } from "@/app/lib/auth";
 
 const PROMPTS: Record<string, (ctx: any) => string> = {
   summary: ({ siteName, url, pageCount, pageNames, totalFindings, bySeverity, byCategory }) =>
@@ -32,7 +29,7 @@ List the most urgent fixes as short, actionable items — one per line, prefixed
 };
 
 export async function POST(req: NextRequest) {
-  if (!auth(req)) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  if (!(await isAuthenticated(req))) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
   const { report, field } = await req.json();
   if (!report || !field || !PROMPTS[field]) {

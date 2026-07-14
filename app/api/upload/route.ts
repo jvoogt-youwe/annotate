@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
-
-function genId() { return Math.random().toString(36).slice(2, 9); }
+import { isAuthenticated, genId } from "@/app/lib/auth";
 
 export async function POST(req: NextRequest) {
-  const password = req.headers.get("x-audit-password");
-  if (password !== process.env.AUDIT_PASSWORD) {
+  if (!(await isAuthenticated(req))) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
   const form = await req.formData();

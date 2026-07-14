@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-
-function auth(req: NextRequest) {
-  return req.headers.get("x-audit-password") === process.env.AUDIT_PASSWORD;
-}
-
-function genId() { return Math.random().toString(36).slice(2, 9); }
+import { isAuthenticated, genId } from "@/app/lib/auth";
 
 export async function POST(req: NextRequest) {
-  if (!auth(req)) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  if (!(await isAuthenticated(req))) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const { screenshotUrl, pageName, device } = await req.json();
   if (!screenshotUrl) return NextResponse.json({ error: "screenshotUrl required" }, { status: 400 });
 

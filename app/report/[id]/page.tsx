@@ -8,6 +8,7 @@ import type { Annotation, Device, Overview, Page, Report } from "../../lib/types
 
 import { AddPageModal, type NewPageForm } from "../../components/report/AddPageModal";
 import { ReportHeader } from "../../components/report/ReportHeader";
+import { ReportSettingsPanel } from "../../components/report/ReportSettingsPanel";
 import { PagesSidebar } from "../../components/report/PagesSidebar";
 import { OverviewEditor } from "../../components/report/OverviewEditor";
 import { PageEditor } from "../../components/report/PageEditor";
@@ -22,6 +23,8 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [password, setPassword] = useState<string | null>(null);
+  const [scope, setScope] = useState<{ role: "admin" } | { role: "client"; clientId: string; clientName: string } | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -43,9 +46,18 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
 
   useEffect(() => {
     const saved = sessionStorage.getItem("annotate-password");
-    if (saved) setPassword(saved);
     const p = new URLSearchParams(window.location.search);
     if (p.get("view") === "1") setReadonly(true);
+    if (!saved) return;
+    setPassword(saved);
+    fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: saved }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(s => setScope(s))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -239,6 +251,8 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const activePage = report.pages.find((p: Page) => p.id === activePageId);
   // Always show the freshest version of the selected annotation
   const currentSelected = activePage?.annotations?.find((a: Annotation) => a.id === selectedAnnotation?.id) ?? selectedAnnotation;
+  const reportClientId = report.clientId || "legacy";
+  const canManageClient = !!scope && (scope.role === "admin" || (scope.role === "client" && scope.clientId === reportClientId)) && reportClientId !== "legacy";
 
   return (
     <div className="font-[Inter,'Helvetica_Neue',Arial,sans-serif] bg-brand-off-white h-screen flex flex-col overflow-hidden">
@@ -285,7 +299,17 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
         onCopyShareLink={copyShareLink}
         onExport={exportHTML}
         onSignOut={() => { sessionStorage.removeItem("annotate-password"); window.location.href = "/"; }}
+        canManageClient={canManageClient}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
+
+      {settingsOpen && password && (
+        <ReportSettingsPanel
+          clientId={reportClientId}
+          password={password}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
 
       {/* ── BODY ROW ── */}
       <div className="flex flex-1 overflow-hidden">

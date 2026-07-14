@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put, list } from "@vercel/blob";
 import { launchBrowser, captureScreenshot } from "@/app/lib/capture";
+import { resolveScopeFromRequest, genId } from "@/app/lib/auth";
+import { getClient, LEGACY_CLIENT_ID } from "@/app/lib/clients";
 
 export const maxDuration = 240;
 
-function auth(req: NextRequest) {
-  return req.headers.get("x-audit-password") === process.env.AUDIT_PASSWORD;
-}
-
-function genId() { return Math.random().toString(36).slice(2, 9); }
-
 export async function GET(req: NextRequest) {
-  if (!auth(req)) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  const scope = await resolveScopeFromRequest(req);
+  if (!scope) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   try {
     const { blobs } = await list({ prefix: "reports/", token: process.env.BLOB_READ_WRITE_TOKEN });
     const reports = await Promise.all(
@@ -22,12 +19,14 @@ export async function GET(req: NextRequest) {
         } catch { return null; }
       })
     );
+    const visible = reports.filter(Boolean).filter((r: any) =>
+      scope.role === "admin" || (r.clientId || LEGACY_CLIENT_ID) === scope.clientId
+    );
     return NextResponse.json({
-      reports: reports
-        .filter(Boolean)
+      reports: visible
         .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 20)
-        .map((r: any) => ({ id: r.id, url: r.url, siteName: r.siteName, createdAt: r.createdAt, pages: r.pages?.map((p: any) => ({ id: p.id, name: p.name })) })),
+        .map((r: any) => ({ id: r.id, url: r.url, siteName: r.siteName, createdAt: r.createdAt, clientId: r.clientId || LEGACY_CLIENT_ID, pages: r.pages?.map((p: any) => ({ id: p.id, name: p.name })) })),
     });
   } catch {
     return NextResponse.json({ reports: [] });
@@ -35,12 +34,24 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!auth(req)) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  const scope = await resolveScopeFromRequest(req);
+  if (!scope) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   try {
   const body = await req.json();
   let url: string = body.url || "";
   if (!url) return NextResponse.json({ error: "URL required" }, { status: 400 });
   if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+
+  let clientId: string;
+  if (scope.role === "client") {
+    clientId = scope.clientId;
+  } else {
+    clientId = body.clientId || "";
+    if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 });
+    if (clientId !== LEGACY_CLIENT_ID && !(await getClient(clientId))) {
+      return NextResponse.json({ error: "Unknown client" }, { status: 400 });
+    }
+  }
 
   const id = genId();
   const siteName = new URL(url).hostname.replace(/^www\./, "");
@@ -68,6 +79,7 @@ export async function POST(req: NextRequest) {
     id,
     url,
     siteName,
+    clientId,
     createdAt: new Date().toISOString(),
     pages,
   };
