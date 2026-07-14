@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
-import type { Device, Page } from "../../lib/types";
+import type { Annotation, Device, Page } from "../../lib/types";
 import { AnnotatedScreenshot } from "./AnnotatedScreenshot";
 
 // ─── PAGE EDITOR ──────────────────────────────────────────────────────────────
-export function PageEditor({ page, onUpdate, onMetaUpdate, password, readonly, reportId, highlightedAnnotationId }: {
+export function PageEditor({ page, onUpdate, onMetaUpdate, password, readonly, highlightedAnnotationId, onSelectAnnotation }: {
   page: Page; onUpdate: (p: Page) => void; onMetaUpdate: (name: string, url: string, device: Device) => void;
-  password: string | null; readonly: boolean; reportId: string; highlightedAnnotationId: string | null;
+  password: string | null; readonly: boolean; highlightedAnnotationId: string | null;
+  onSelectAnnotation: (a: Annotation) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(page.name);
@@ -54,7 +55,7 @@ export function PageEditor({ page, onUpdate, onMetaUpdate, password, readonly, r
           </>
         )}
       </div>
-      <AnnotatedScreenshot page={page} onUpdate={onUpdate} password={password} readonly={readonly} reportId={reportId} highlightedAnnotationId={highlightedAnnotationId} />
+      <AnnotatedScreenshot page={page} onUpdate={onUpdate} password={password} readonly={readonly} highlightedAnnotationId={highlightedAnnotationId} onSelectAnnotation={onSelectAnnotation} />
     </div>
   );
 }

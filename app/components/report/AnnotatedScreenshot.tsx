@@ -2,17 +2,15 @@
 import { useRef, useState } from "react";
 import { CAT, SEV, genId } from "../../lib/theme";
 import type { Annotation, Page } from "../../lib/types";
-import { AnnotationDrawer } from "./AnnotationDrawer";
 
 // ─── ANNOTATED SCREENSHOT ─────────────────────────────────────────────────────
 export function AnnotatedScreenshot({
-  page, onUpdate, password, readonly, reportId, highlightedAnnotationId,
+  page, onUpdate, password, readonly, highlightedAnnotationId, onSelectAnnotation,
 }: {
   page: Page; onUpdate: (p: Page) => void; password: string | null;
-  readonly: boolean; reportId: string; highlightedAnnotationId: string | null;
+  readonly: boolean; highlightedAnnotationId: string | null;
+  onSelectAnnotation: (a: Annotation) => void;
 }) {
-  const [drawerAnnotation, setDrawerAnnotation] = useState<Annotation | null>(null);
-  const [isNew, setIsNew] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -32,8 +30,7 @@ export function AnnotatedScreenshot({
     if (readonly || dragMoved) return;
     const { x, y } = getRelativePos(e);
     const newAnnotation: Annotation = { id: genId(), number: page.annotations.length + 1, x, y, category: "UX", severity: "High", title: "", detail: "", recommendation: "", hypothesis: "", source: "manual" };
-    setDrawerAnnotation(newAnnotation);
-    setIsNew(true);
+    onSelectAnnotation(newAnnotation);
   }
 
   function handleContainerMouseMove(e: React.MouseEvent) {
@@ -44,20 +41,6 @@ export function AnnotatedScreenshot({
   }
 
   function handleContainerMouseUp() { setDraggingId(null); }
-
-  function saveAnnotation(updated: Annotation) {
-    const annotations = [...page.annotations];
-    const idx = annotations.findIndex(a => a.id === updated.id);
-    if (idx === -1) annotations.push({ ...updated, number: annotations.length + 1 });
-    else annotations[idx] = updated;
-    onUpdate({ ...page, annotations });
-    setDrawerAnnotation(null);
-  }
-
-  function deleteAnnotation(id: string) {
-    onUpdate({ ...page, annotations: page.annotations.filter((a: Annotation) => a.id !== id).map((a: Annotation, i: number) => ({ ...a, number: i + 1 })) });
-    setDrawerAnnotation(null);
-  }
 
   async function generateAI() {
     if (!password) return;
@@ -133,7 +116,7 @@ export function AnnotatedScreenshot({
           <div key={a.id}
             title={draggingId ? undefined : a.title}
             onMouseDown={e => { if (readonly) return; e.stopPropagation(); setDragMoved(false); setDraggingId(a.id); }}
-            onClick={e => { e.stopPropagation(); if (!dragMoved) { setDrawerAnnotation(a); setIsNew(false); } }}
+            onClick={e => { e.stopPropagation(); if (!dragMoved) onSelectAnnotation(a); }}
             className="absolute w-[30px] h-[30px] rounded-full border-[2.5px] border-white text-[13px] font-extrabold flex items-center justify-center leading-none select-none transition-[transform,box-shadow] duration-[180ms]"
             style={{
               left: `${a.x}%`, top: `${a.y}%`,
@@ -154,7 +137,7 @@ export function AnnotatedScreenshot({
       {page.annotations.length > 0 && (
         <div className="mt-4 flex flex-col gap-1.5">
           {page.annotations.map((a: Annotation) => (
-            <button key={a.id} onClick={() => { setDrawerAnnotation(a); setIsNew(false); }}
+            <button key={a.id} onClick={() => onSelectAnnotation(a)}
               className="bg-brand-white border border-brand-border rounded-lg px-4 py-3 cursor-pointer text-left flex items-center gap-3">
               <div className="w-[26px] h-[26px] rounded-full shrink-0 flex items-center justify-center text-xs font-extrabold" style={{ background: SEV[a.severity]?.color || "#e40046", color: SEV[a.severity]?.pinText || "#ffffff" }}>{a.number}</div>
               <div className="flex-1 min-w-0">
@@ -165,20 +148,6 @@ export function AnnotatedScreenshot({
             </button>
           ))}
         </div>
-      )}
-
-      {drawerAnnotation && (
-        <AnnotationDrawer
-          annotation={drawerAnnotation}
-          pageAnnotations={page.annotations}
-          onSave={saveAnnotation}
-          onDelete={deleteAnnotation}
-          onClose={() => setDrawerAnnotation(null)}
-          isNew={isNew}
-          readonly={readonly}
-          reportId={reportId}
-          pageId={page.id}
-        />
       )}
     </div>
   );

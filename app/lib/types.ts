@@ -4,6 +4,13 @@ export type Severity = "Critical" | "High" | "Medium" | "Low";
 
 export type Device = "desktop" | "mobile";
 
+export interface Attachment {
+  id: string;
+  type: "image" | "link";
+  url: string;
+  label?: string;
+}
+
 export interface Annotation {
   id: string;
   number: number;
@@ -17,6 +24,7 @@ export interface Annotation {
   hypothesis: string;
   clientNotes?: string;
   source?: "ai" | "manual";
+  attachments?: Attachment[];
 }
 
 export interface Page {

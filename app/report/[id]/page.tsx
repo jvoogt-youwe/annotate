@@ -177,21 +177,28 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
 
   function closeComments() {
     setCommentsOpen(false);
-    setSelectedAnnotation(null);
-    setHighlightedAnnotationId(null);
   }
 
   function saveAnnotationFromDetail(updatedAnnotation: Annotation) {
     if (!activePage || !report) return;
     const pages = report.pages.map((p: Page) => {
       if (p.id !== activePage.id) return p;
-      return { ...p, annotations: p.annotations.map((a: Annotation) => a.id === updatedAnnotation.id ? updatedAnnotation : a) };
+      const exists = p.annotations.some((a: Annotation) => a.id === updatedAnnotation.id);
+      const annotations = exists
+        ? p.annotations.map((a: Annotation) => a.id === updatedAnnotation.id ? updatedAnnotation : a)
+        : [...p.annotations, { ...updatedAnnotation, number: p.annotations.length + 1 }];
+      return { ...p, annotations };
     });
     const updated = { ...report, pages };
     setReport(updated);
     setSelectedAnnotation(updatedAnnotation);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => saveReport(updated), 1200);
+  }
+
+  function selectAnnotation(a: Annotation) {
+    setSelectedAnnotation(a);
+    setHighlightedAnnotationId(a.id);
   }
 
   function deleteAnnotationFromDetail(annotationId: string) {
@@ -310,8 +317,8 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
               onMetaUpdate={(name, url, device) => updatePageMeta(activePage.id, name, url, device)}
               password={password}
               readonly={readonly}
-              reportId={id}
               highlightedAnnotationId={highlightedAnnotationId}
+              onSelectAnnotation={selectAnnotation}
             />
           ) : (
             <p className="text-brand-muted text-sm">Select a page from the sidebar.</p>
@@ -330,6 +337,8 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
               onDelete={deleteAnnotationFromDetail}
               readonly={readonly}
               reportId={id}
+              password={password}
+              isNew={!activePage?.annotations?.some((a: Annotation) => a.id === currentSelected.id)}
               onClientNotesSaved={(annotationId, notes) => activePage && handleClientNotesSaved(activePage.id, annotationId, notes)}
             />
           )}

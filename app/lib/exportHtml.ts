@@ -29,6 +29,11 @@ export function generateExportHTML(report: Report, shareUrl: string): string {
           ${a.recommendation ? `<p class="finding-rec"><strong>Recommendation:</strong> ${a.recommendation}</p>` : ""}
           ${a.hypothesis ? `<p class="finding-hypothesis"><strong>Hypothesis:</strong> ${a.hypothesis}</p>` : ""}
           ${a.clientNotes ? `<p class="finding-notes"><strong>Client note:</strong> ${a.clientNotes}</p>` : ""}
+          ${a.attachments && a.attachments.length > 0 ? `<div class="finding-attachments">${a.attachments.map(att =>
+            att.type === "image"
+              ? `<a href="${att.url}" target="_blank" rel="noopener noreferrer"><img src="${att.url}" alt="Attachment"/></a>`
+              : `<a class="link-attachment" href="${att.url}" target="_blank" rel="noopener noreferrer">🔗 ${att.label || att.url}</a>`
+          ).join("")}</div>` : ""}
         </div>
       </div>`).join("");
 
@@ -80,6 +85,9 @@ h1{font-size:30px;font-weight:900;color:#fff;letter-spacing:-.02em;margin-bottom
 .finding-rec{font-size:13px;color:#333;line-height:1.6;margin-bottom:5px}
 .finding-hypothesis{font-size:13px;color:#555;font-style:italic;line-height:1.6;margin-bottom:5px}
 .finding-notes{font-size:13px;color:#7a6000;background:#fffbe6;border-left:3px solid #f0d060;padding:6px 10px;border-radius:0 6px 6px 0;line-height:1.6}
+.finding-attachments{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.finding-attachments img{width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid #e8e8e8}
+.link-attachment{font-size:12px;color:#036eeb;background:#f7f7f8;border:1px solid #e8e8e8;border-radius:6px;padding:6px 10px;text-decoration:none}
 .footer{margin-top:48px;padding-top:24px;border-top:1px solid #e8e8e8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
 .ov-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#767676;margin-bottom:6px}
 .ov-text{font-size:14px;color:#333;line-height:1.7}
