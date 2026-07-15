@@ -20,17 +20,14 @@ export function normalizeSiteUrl(url: string): string {
   }
 }
 
-// Jira credentials are a real secret (unlike client password hashes, the API
-// token must be kept in plaintext server-side to call the Jira API), so this
-// is stored as its own *private* blob — never under the `clients/` prefix,
-// which is fetched as a public URL, and never returned to the browser.
-function configPath(clientId: string) {
-  return `jira-config/${clientId}.json`;
-}
+// Jira credentials are a real secret (the API token must be kept in plaintext
+// server-side to call the Jira API), so this is stored as its own *private*
+// blob and never returned to the browser.
+const CONFIG_PATH = "jira-config/config.json";
 
-export async function getJiraConfig(clientId: string): Promise<JiraConfig | null> {
+export async function getJiraConfig(): Promise<JiraConfig | null> {
   try {
-    const result = await get(configPath(clientId), { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN });
+    const result = await get(CONFIG_PATH, { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN });
     if (!result || result.statusCode !== 200) return null;
     const text = await new Response(result.stream).text();
     return JSON.parse(text);
@@ -39,8 +36,8 @@ export async function getJiraConfig(clientId: string): Promise<JiraConfig | null
   }
 }
 
-export async function saveJiraConfig(clientId: string, config: JiraConfig): Promise<void> {
-  await put(configPath(clientId), JSON.stringify(config), {
+export async function saveJiraConfig(config: JiraConfig): Promise<void> {
+  await put(CONFIG_PATH, JSON.stringify(config), {
     access: "private",
     contentType: "application/json",
     token: process.env.BLOB_READ_WRITE_TOKEN,
@@ -48,8 +45,8 @@ export async function saveJiraConfig(clientId: string, config: JiraConfig): Prom
   });
 }
 
-export async function deleteJiraConfig(clientId: string): Promise<void> {
-  await del(configPath(clientId), { token: process.env.BLOB_READ_WRITE_TOKEN }).catch(() => {});
+export async function deleteJiraConfig(): Promise<void> {
+  await del(CONFIG_PATH, { token: process.env.BLOB_READ_WRITE_TOKEN }).catch(() => {});
 }
 
 // Jira Server/Data Center's REST API v2 takes `description` as a plain wiki-markup

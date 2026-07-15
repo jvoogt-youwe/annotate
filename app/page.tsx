@@ -1,9 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { YouweLogo } from "./components/YouweLogo";
-import { ClientPickerModal } from "./components/ClientPickerModal";
-
-type Scope = { role: "admin" } | { role: "client"; clientId: string; clientName: string };
 
 const B = {
   red: "#e40046", ink: "#151515", inkMid: "#2a2a2a",
@@ -35,7 +32,7 @@ function ConfirmDeleteModal({ siteName, onCancel, onConfirm, deleting }: { siteN
   );
 }
 
-function PasswordGate({ onAuth }: { onAuth: (p: string, scope: Scope) => void }) {
+function PasswordGate({ onAuth }: { onAuth: (p: string) => void }) {
   const [val, setVal] = useState("");
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);
@@ -51,8 +48,7 @@ function PasswordGate({ onAuth }: { onAuth: (p: string, scope: Scope) => void })
         body: JSON.stringify({ password: val.trim() }),
       });
       if (!res.ok) { setError("Incorrect password."); return; }
-      const scope = await res.json();
-      onAuth(val.trim(), scope);
+      onAuth(val.trim());
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -65,7 +61,7 @@ function PasswordGate({ onAuth }: { onAuth: (p: string, scope: Scope) => void })
       <div style={{ background: "#1e1e1e", border: "1px solid #2a2a2a", borderRadius: 16, padding: 40, maxWidth: 400, width: "100%" }}>
         <YouweLogo height={32} />
         <h1 style={{ fontSize: 22, fontWeight: 900, color: B.white, marginTop: 24, marginBottom: 6 }}>UX Annotate</h1>
-        <p style={{ fontSize: 13, color: B.mutedOnDark, marginBottom: 28 }}>Enter your client password to continue.</p>
+        <p style={{ fontSize: 13, color: B.mutedOnDark, marginBottom: 28 }}>Enter the password to continue.</p>
         <input
           type="password" placeholder="Password"
           value={val} onChange={e => setVal(e.target.value)}
@@ -83,7 +79,6 @@ function PasswordGate({ onAuth }: { onAuth: (p: string, scope: Scope) => void })
 
 export default function Home() {
   const [password, setPassword] = useState<string | null>(null);
-  const [scope, setScope] = useState<Scope | null>(null);
   const [url, setUrl] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
@@ -91,7 +86,6 @@ export default function Home() {
   const [recentReports, setRecentReports] = useState<any[]>([]);
   const [pendingDelete, setPendingDelete] = useState<{ id: string; siteName: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [clientPicker, setClientPicker] = useState<{ id: string; name: string }[] | null>(null);
 
   const MSGS = [
     "Capturing homepage screenshots…",
@@ -99,8 +93,7 @@ export default function Home() {
     "Preparing report…",
   ];
 
-  // Re-validate on every load rather than trusting a stale session — a client's
-  // password may have been reset since this tab last checked.
+  // Re-validate on every load rather than trusting a stale session.
   useEffect(() => {
     const saved = sessionStorage.getItem("annotate-password");
     if (!saved) return;
@@ -109,9 +102,8 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password: saved }),
     })
-      .then(r => r.ok ? r.json() : null)
-      .then(s => {
-        if (s) { setPassword(saved); setScope(s); }
+      .then(r => {
+        if (r.ok) setPassword(saved);
         else sessionStorage.removeItem("annotate-password");
       })
       .catch(() => {});
@@ -121,20 +113,19 @@ export default function Home() {
     if (!password) return;
     fetch("/api/reports", { headers: { "x-audit-password": password } })
       .then(r => {
-        if (r.status === 401) { sessionStorage.removeItem("annotate-password"); setPassword(null); setScope(null); return { reports: [] }; }
+        if (r.status === 401) { sessionStorage.removeItem("annotate-password"); setPassword(null); return { reports: [] }; }
         return r.ok ? r.json() : { reports: [] };
       })
       .then(d => setRecentReports(d.reports || []))
       .catch(() => {});
   }, [password]);
 
-  function handleAuth(p: string, s: Scope) {
+  function handleAuth(p: string) {
     sessionStorage.setItem("annotate-password", p);
     setPassword(p);
-    setScope(s);
   }
 
-  async function createReport(clientId?: string) {
+  async function createReport() {
     setStatus("loading");
     setError("");
     let i = 0;
@@ -144,7 +135,7 @@ export default function Home() {
       const res = await fetch("/api/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-audit-password": password! },
-        body: JSON.stringify({ url: url.trim(), ...(clientId ? { clientId } : {}) }),
+        body: JSON.stringify({ url: url.trim() }),
       });
       if (!res.ok && !res.headers.get("content-type")?.includes("application/json")) {
         throw new Error(res.status === 504 ? "The report took too long to generate and timed out. Try again, or try a smaller site." : `Server error (${res.status}). Please try again.`);
@@ -161,28 +152,8 @@ export default function Home() {
   }
 
   async function handleStart() {
-    if (!url.trim() || !password || !scope) return;
-    if (scope.role === "client") { createReport(); return; }
-    // Admin must pick or create a client before a report can be created.
-    try {
-      const res = await fetch("/api/clients", { headers: { "x-audit-password": password } });
-      const data = await res.json();
-      setClientPicker(data.clients || []);
-    } catch {
-      setError("Failed to load clients.");
-      setStatus("error");
-    }
-  }
-
-  async function handleCreateClient(name: string, clientPassword?: string) {
-    const res = await fetch("/api/clients", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-audit-password": password! },
-      body: JSON.stringify({ name, password: clientPassword }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to create client");
-    return { id: data.client.id, name: data.client.name, password: data.password };
+    if (!url.trim() || !password) return;
+    createReport();
   }
 
   async function handleDelete() {
@@ -203,7 +174,7 @@ export default function Home() {
     }
   }
 
-  if (!password || !scope) return <PasswordGate onAuth={handleAuth} />;
+  if (!password) return <PasswordGate onAuth={handleAuth} />;
 
   return (
     <div style={{ fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif", background: B.offWhite, minHeight: "100vh" }}>
@@ -213,12 +184,9 @@ export default function Home() {
             <YouweLogo height={45} />
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
               <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: B.mutedOnDark, textTransform: "uppercase" }}>
-                UX Annotate{scope.role === "client" ? ` · ${scope.clientName}` : " · Admin"}
+                UX Annotate
               </span>
-              {scope.role === "admin" && (
-                <a href="/clients" style={{ fontSize: 12, color: B.mutedOnDark, textDecoration: "none" }}>Manage clients</a>
-              )}
-              <button onClick={() => { sessionStorage.removeItem("annotate-password"); setPassword(null); setScope(null); }} style={{ fontSize: 12, color: B.mutedOnDark, background: "none", border: "none", cursor: "pointer" }}>Sign out</button>
+              <button onClick={() => { sessionStorage.removeItem("annotate-password"); setPassword(null); }} style={{ fontSize: 12, color: B.mutedOnDark, background: "none", border: "none", cursor: "pointer" }}>Sign out</button>
             </div>
           </div>
           <div style={{ padding: "32px 0 36px" }}>
@@ -333,15 +301,6 @@ export default function Home() {
           onCancel={() => setPendingDelete(null)}
           onConfirm={handleDelete}
           deleting={deleting}
-        />
-      )}
-
-      {clientPicker && (
-        <ClientPickerModal
-          clients={clientPicker}
-          onCancel={() => setClientPicker(null)}
-          onSelect={clientId => { setClientPicker(null); createReport(clientId); }}
-          onCreate={handleCreateClient}
         />
       )}
     </div>

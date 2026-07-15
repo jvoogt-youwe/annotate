@@ -23,12 +23,11 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [password, setPassword] = useState<string | null>(null);
-  const [scope, setScope] = useState<{ role: "admin" } | { role: "client"; clientId: string; clientName: string } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [readonly, setReadonly] = useState(false);
+  const [readonly, setReadonly] = useState(true);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null);
   const [highlightedAnnotationId, setHighlightedAnnotationId] = useState<string | null>(null);
@@ -47,17 +46,19 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
 
   useEffect(() => {
     const saved = sessionStorage.getItem("annotate-password");
-    const p = new URLSearchParams(window.location.search);
-    if (p.get("view") === "1") setReadonly(true);
-    if (!saved) return;
-    setPassword(saved);
+    const forcedView = new URLSearchParams(window.location.search).get("view") === "1";
+    if (!saved) return; // no cached credential — stays readonly (the default)
     fetch("/api/auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password: saved }),
     })
-      .then(r => r.ok ? r.json() : null)
-      .then(s => setScope(s))
+      .then(r => {
+        if (!r.ok) { sessionStorage.removeItem("annotate-password"); return; }
+        setPassword(saved);
+        // ?view=1 still lets an authenticated user deliberately preview the read-only client view
+        if (!forcedView) setReadonly(false);
+      })
       .catch(() => {});
   }, []);
 
@@ -74,15 +75,12 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   }, [id]);
 
   useEffect(() => {
-    if (!report || !password || !scope) { setJiraConfigured(false); return; }
-    const clientId = report.clientId || "legacy";
-    const allowed = scope.role === "admin" || (scope.role === "client" && scope.clientId === clientId);
-    if (!allowed || clientId === "legacy") { setJiraConfigured(false); return; }
-    fetch(`/api/clients/${clientId}/jira`, { headers: { "x-audit-password": password } })
+    if (!report || !password) { setJiraConfigured(false); return; }
+    fetch("/api/jira", { headers: { "x-audit-password": password } })
       .then(r => r.ok ? r.json() : null)
       .then(data => setJiraConfigured(!!data?.configured))
       .catch(() => setJiraConfigured(false));
-  }, [report?.clientId, password, scope]);
+  }, [report?.id, password]);
 
   async function pushFindingsToJira(pageId: string, annotationIds: string[]) {
     if (!password || !report) return { results: [] };
@@ -298,8 +296,6 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const activePage = report.pages.find((p: Page) => p.id === activePageId);
   // Always show the freshest version of the selected annotation
   const currentSelected = activePage?.annotations?.find((a: Annotation) => a.id === selectedAnnotation?.id) ?? selectedAnnotation;
-  const reportClientId = report.clientId || "legacy";
-  const canManageClient = !!scope && (scope.role === "admin" || (scope.role === "client" && scope.clientId === reportClientId)) && reportClientId !== "legacy";
 
   return (
     <div className="font-[Inter,'Helvetica_Neue',Arial,sans-serif] bg-brand-off-white h-screen flex flex-col overflow-hidden">
@@ -346,13 +342,12 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
         onCopyShareLink={copyShareLink}
         onExport={exportHTML}
         onSignOut={() => { sessionStorage.removeItem("annotate-password"); window.location.href = "/"; }}
-        canManageClient={canManageClient}
+        canManageClient={!readonly}
         onOpenSettings={() => setSettingsOpen(true)}
       />
 
       {settingsOpen && password && (
         <ReportSettingsPanel
-          clientId={reportClientId}
           password={password}
           onClose={() => setSettingsOpen(false)}
           onJiraConfigChange={setJiraConfigured}

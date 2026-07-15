@@ -57,7 +57,6 @@ export interface Report {
   id: string;
   siteName: string;
   url: string;
-  clientId?: string;
   pages: Page[];
   overview?: Overview;
   dataSources?: DataSource[];

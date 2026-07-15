@@ -31,7 +31,7 @@ Internal Youwe Agency tool for auditing client websites. Paste a client URL, cap
    | Variable | Description |
    |---|---|
    | `ANTHROPIC_API_KEY` | Anthropic API key used for AI finding/overview generation |
-   | `AUDIT_PASSWORD` | Master/admin password — sees and manages all clients and reports |
+   | `AUDIT_PASSWORD` | Shared password for the app — everyone with it sees and manages all reports |
    | `BLOB_READ_WRITE_TOKEN` | Vercel Blob read/write token for report and screenshot storage |
 
    Get actual values from a teammate through a secure channel — never via git.
@@ -43,8 +43,6 @@ Internal Youwe Agency tool for auditing client websites. Paste a client URL, cap
    ```
 
 4. Open [http://localhost:3000](http://localhost:3000).
-
-Individual client passwords are created and reset in-app under "Manage clients" (admin only), not via environment variables.
 
 ## Scripts
 

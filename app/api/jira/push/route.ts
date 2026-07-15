@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { list, put } from "@vercel/blob";
-import { resolveScopeFromRequest, canAccessReport } from "@/app/lib/auth";
-import { LEGACY_CLIENT_ID } from "@/app/lib/clients";
+import { isAuthenticated } from "@/app/lib/auth";
 import { getJiraConfig, createJiraIssue, buildJiraDescription } from "@/app/lib/jira";
 
 async function findReportBlob(id: string) {
@@ -10,8 +9,7 @@ async function findReportBlob(id: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const scope = await resolveScopeFromRequest(req);
-  if (!scope) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  if (!(await isAuthenticated(req))) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
   const { reportId, pageId, annotationIds, shareUrl } = await req.json();
   if (!reportId || !pageId || !Array.isArray(annotationIds) || annotationIds.length === 0) {
@@ -21,11 +19,9 @@ export async function POST(req: NextRequest) {
   const blob = await findReportBlob(reportId);
   if (!blob) return NextResponse.json({ error: "Report not found" }, { status: 404 });
   const report = await (await fetch(blob.url)).json();
-  if (!canAccessReport(scope, report)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const clientId = report.clientId || LEGACY_CLIENT_ID;
-  const config = await getJiraConfig(clientId);
-  if (!config) return NextResponse.json({ error: "Jira isn't connected for this client yet — set it up in Report settings." }, { status: 400 });
+  const config = await getJiraConfig();
+  if (!config) return NextResponse.json({ error: "Jira isn't connected yet — set it up in Report settings." }, { status: 400 });
 
   const page = report.pages.find((p: any) => p.id === pageId);
   if (!page) return NextResponse.json({ error: "Page not found" }, { status: 404 });
