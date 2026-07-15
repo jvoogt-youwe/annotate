@@ -13,6 +13,7 @@ import { ShareLinkModal } from "../../components/report/ShareLinkModal";
 import { SharePasswordGate } from "../../components/report/SharePasswordGate";
 import { PagesSidebar } from "../../components/report/PagesSidebar";
 import { OverviewEditor } from "../../components/report/OverviewEditor";
+import { ResourcesPage } from "../../components/report/ResourcesPage";
 import { PageEditor } from "../../components/report/PageEditor";
 import { CommentDetail } from "../../components/report/CommentDetail";
 import { CommentsList } from "../../components/report/CommentsList";
@@ -43,6 +44,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const [showOverview, setShowOverview] = useState(() =>
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "1"
   );
+  const [showResources, setShowResources] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState("");
   const [jiraConfigured, setJiraConfigured] = useState(false);
@@ -110,6 +112,29 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
     loadReport(cachedSharePw);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Client viewers keep the same tab open on a link handed to them once — without
+  // this, anything the agency adds after that (a resource, an edited finding) is
+  // invisible until they re-navigate. Poll quietly in the background instead, and
+  // refresh immediately when they tab back in.
+  useEffect(() => {
+    if (!readonly || needsSharePassword) return;
+    function silentRefresh() {
+      const auditPw = sessionStorage.getItem("annotate-password");
+      const sharePw = sessionStorage.getItem(sharePasswordKey(id));
+      const headers: Record<string, string> = {};
+      if (auditPw) headers["x-audit-password"] = auditPw;
+      if (sharePw) headers["x-share-password"] = sharePw;
+      fetch(`/api/reports/${id}`, { headers })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data) setReport(data); })
+        .catch(() => {});
+    }
+    const interval = setInterval(silentRefresh, 15000);
+    function onVisible() { if (document.visibilityState === "visible") silentRefresh(); }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
+  }, [id, readonly, needsSharePassword]);
 
   function submitSharePassword(pw: string) {
     setCheckingSharePassword(true);
@@ -421,9 +446,11 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
           pages={report.pages}
           activePageId={activePageId}
           showOverview={showOverview}
+          showResources={showResources}
           readonly={readonly}
-          onShowOverview={() => { setShowOverview(true); setActivePageId(null); setCommentsOpen(false); setSelectedAnnotation(null); setHighlightedAnnotationId(null); }}
-          onSelectPage={pid => { setActivePageId(pid); setShowOverview(false); }}
+          onShowOverview={() => { setShowOverview(true); setShowResources(false); setActivePageId(null); setCommentsOpen(false); setSelectedAnnotation(null); setHighlightedAnnotationId(null); }}
+          onShowResources={() => { setShowResources(true); setShowOverview(false); setActivePageId(null); setCommentsOpen(false); setSelectedAnnotation(null); setHighlightedAnnotationId(null); }}
+          onSelectPage={pid => { setActivePageId(pid); setShowOverview(false); setShowResources(false); }}
           onDeletePage={deletePage}
         />
 
@@ -436,7 +463,14 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
               readonly={readonly}
               report={report}
               password={password}
-              onUpdateDataSources={updateDataSources}
+            />
+          ) : showResources ? (
+            <ResourcesPage
+              report={report}
+              dataSources={report.dataSources || []}
+              onChange={updateDataSources}
+              readonly={readonly}
+              password={password}
             />
           ) : activePage ? (
             <PageEditor

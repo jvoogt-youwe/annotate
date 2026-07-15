@@ -7,6 +7,24 @@ function withProtocol(url: string) {
   return /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`;
 }
 
+// Renders the same lightweight **bold** + dash-bullet convention the AI-generated
+// overview copy follows (see app/components/report/OverviewEditor.tsx), so the
+// static export doesn't show literal "**" markers or one dense paragraph.
+function renderOverviewBlock(text: string): string {
+  const bold = (s: string) => s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  const paragraphs: string[] = [];
+  const bullets: string[] = [];
+  text.split("\n").map(l => l.trim()).filter(Boolean).forEach(line => {
+    if (/^[-–•]\s+/.test(line)) bullets.push(line.replace(/^[-–•]\s*/, ""));
+    else paragraphs.push(line);
+  });
+  const paraHtml = paragraphs.map(p => `<p class="ov-text">${bold(p)}</p>`).join("");
+  const bulletHtml = bullets.length
+    ? `<ul style="margin:10px 0 0;padding-left:18px;color:#151515">${bullets.map(b => `<li style="margin-bottom:6px">${bold(b)}</li>`).join("")}</ul>`
+    : "";
+  return paraHtml + bulletHtml;
+}
+
 export function generateExportHTML(report: Report, shareUrl: string): string {
   const date = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const totalAnnotations = report.pages.reduce((n: number, p: Page) => n + p.annotations.length, 0);
@@ -15,9 +33,9 @@ export function generateExportHTML(report: Report, shareUrl: string): string {
     <div class="page-section" style="margin-bottom:28px">
       <div class="page-header"><h2>Report Overview</h2></div>
       <div style="padding:24px;display:flex;flex-direction:column;gap:20px">
-        ${ov.summary ? `<div><p class="ov-label">Summary</p><p class="ov-text">${ov.summary.replace(/\n/g, "<br>")}</p></div>` : ""}
-        ${ov.keyFindings ? `<div><p class="ov-label">Key Findings</p><p class="ov-text">${ov.keyFindings.replace(/\n/g, "<br>")}</p></div>` : ""}
-        ${ov.urgentFixes ? `<div><p class="ov-label">Urgent Fixes</p><p class="ov-text" style="border-left:3px solid #e40046;padding-left:12px">${ov.urgentFixes.replace(/\n/g, "<br>")}</p></div>` : ""}
+        ${ov.summary ? `<div><p class="ov-label">Summary</p>${renderOverviewBlock(ov.summary)}</div>` : ""}
+        ${ov.keyFindings ? `<div><p class="ov-label">Key Findings</p>${renderOverviewBlock(ov.keyFindings)}</div>` : ""}
+        ${ov.urgentFixes ? `<div><p class="ov-label">Urgent Fixes</p><div style="border-left:3px solid #e40046;padding-left:12px">${renderOverviewBlock(ov.urgentFixes)}</div></div>` : ""}
       </div>
     </div>` : "";
 

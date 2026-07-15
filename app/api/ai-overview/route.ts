@@ -9,7 +9,11 @@ The audit covered ${pageCount} page${pageCount !== 1 ? "s" : ""}: ${pageNames}.
 Total findings: ${totalFindings} — Critical: ${bySeverity.Critical}, High: ${bySeverity.High}, Medium: ${bySeverity.Medium}, Low: ${bySeverity.Low}.
 By category — UX: ${byCategory.UX}, Accessibility: ${byCategory.A11y}, CRO: ${byCategory.CRO}, Performance: ${byCategory.Perf}.
 
-Write a concise executive summary (2–3 short paragraphs) for a client-facing UX report. Cover what was audited, the overall UX health, and the most important themes. Be professional, constructive, and specific. Return plain text only — no markdown, no bullet points, no headers.`,
+Write a client-facing executive summary in two parts:
+1. A short lead paragraph (2–3 sentences) covering what was audited and the overall UX health. Wrap the single most important phrase in **double asterisks** for emphasis — no more than one per sentence.
+2. A blank line, then 3–5 dash-prefixed bullet lines with the key quantitative takeaways (e.g. finding counts by severity, the dominant category). Start each bullet with a **bolded** short lead-in (a number or a 2–3 word label), followed by a plain-text explanation.
+
+Be professional, constructive, and specific. Return plain text only, following exactly the structure above — no markdown headers, no numbered lists.`,
 
   keyFindings: ({ siteName, findings }) =>
     `You are writing the Key Findings section of a UX audit report for ${siteName}.
@@ -17,7 +21,7 @@ Write a concise executive summary (2–3 short paragraphs) for a client-facing U
 All findings from the audit:
 ${findings}
 
-Write 4–6 key themes that group and summarise the most significant patterns across the audit. Each theme should be 1–2 sentences, written as a dash-prefixed item on its own line. Focus on recurring issues and highest-impact problems. Be specific and constructive. Return plain text only — no markdown headers, no numbering.`,
+Write 4–6 key themes that group and summarise the most significant patterns across the audit. Each theme should be 1–2 sentences, written as a dash-prefixed item on its own line. Start each item with a **bolded** 2–4 word label naming the theme, then a plain-text explanation. Focus on recurring issues and highest-impact problems. Be specific and constructive. Return plain text only — no markdown headers, no numbering.`,
 
   urgentFixes: ({ siteName, urgentFindings }) =>
     `You are writing the Urgent Fixes section of a UX audit report for ${siteName}.
@@ -25,7 +29,7 @@ Write 4–6 key themes that group and summarise the most significant patterns ac
 Critical and High severity findings:
 ${urgentFindings || "No critical or high severity findings recorded."}
 
-List the most urgent fixes as short, actionable items — one per line, prefixed with a dash. Maximum 8 items. Focus on what specifically needs to change, ordered by severity and user impact. Return plain text only — no markdown, no headers.`,
+List the most urgent fixes as short, actionable items — one per line, prefixed with a dash. Start each item with a **bolded** short label naming what to fix, then a plain-text explanation of the change. Maximum 8 items. Order by severity and user impact. Return plain text only — no markdown headers, no numbering.`,
 };
 
 export async function POST(req: NextRequest) {

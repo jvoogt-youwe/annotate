@@ -2,20 +2,22 @@ import type { Page } from "../../lib/types";
 
 // ─── PAGES SIDEBAR ────────────────────────────────────────────────────────────
 export function PagesSidebar({
-  pages, activePageId, showOverview, readonly, onShowOverview, onSelectPage, onDeletePage,
+  pages, activePageId, showOverview, showResources, readonly, onShowOverview, onShowResources, onSelectPage, onDeletePage,
 }: {
   pages: Page[];
   activePageId: string | null;
   showOverview: boolean;
+  showResources: boolean;
   readonly: boolean;
   onShowOverview: () => void;
+  onShowResources: () => void;
   onSelectPage: (id: string) => void;
   onDeletePage: (id: string) => void;
 }) {
   return (
     <aside className="w-[220px] shrink-0 py-5 border-r border-brand-border bg-brand-white overflow-y-auto">
       <button onClick={onShowOverview}
-        className="w-full text-left px-4 py-2.5 border-none mb-3 flex items-center gap-2 cursor-pointer"
+        className="w-full text-left px-4 py-2.5 border-none mb-1 flex items-center gap-2 cursor-pointer"
         style={{
           background: showOverview ? "#f7f7f8" : "transparent",
           borderLeft: `3px solid ${showOverview ? "#e40046" : "transparent"}`,
@@ -26,6 +28,18 @@ export function PagesSidebar({
           <rect x="1" y="11" width="5" height="2" rx="1" stroke="#151515" strokeWidth="1.4"/>
         </svg>
         <span className="text-[13px] font-semibold text-brand-ink">Summary</span>
+      </button>
+      <button onClick={onShowResources}
+        className="w-full text-left px-4 py-2.5 border-none mb-3 flex items-center gap-2 cursor-pointer"
+        style={{
+          background: showResources ? "#f7f7f8" : "transparent",
+          borderLeft: `3px solid ${showResources ? "#e40046" : "transparent"}`,
+        }}>
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none" className="shrink-0 opacity-50">
+          <path d="M2 2h10v10H2z" stroke="#151515" strokeWidth="1.4" strokeLinejoin="round"/>
+          <path d="M2 5.5h10M5.5 5.5v6.5" stroke="#151515" strokeWidth="1.4"/>
+        </svg>
+        <span className="text-[13px] font-semibold text-brand-ink">Resources</span>
       </button>
       <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-brand-muted px-4 mb-2">Pages</p>
       {pages.map((p: Page) => (
