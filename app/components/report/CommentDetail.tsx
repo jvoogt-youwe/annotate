@@ -322,8 +322,8 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
           )}
         </div>
 
-        {/* AI feedback — AI-sourced findings only */}
-        {annotation.source === "ai" && !isNew && (
+        {/* AI feedback — AI-sourced findings only, internal users only (hidden from the client-facing readonly view) */}
+        {!readonly && annotation.source === "ai" && !isNew && (
           <div className="border-t border-brand-border pt-[18px]">
             <label className={LBL_CLASS}>Was this AI suggestion accurate?</label>
             <div className="flex gap-2">
