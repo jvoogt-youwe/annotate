@@ -9,12 +9,18 @@ import type { Annotation, DataSource, Device, Overview, Page, Report } from "../
 import { AddPageModal, type NewPageForm } from "../../components/report/AddPageModal";
 import { ReportHeader } from "../../components/report/ReportHeader";
 import { ReportSettingsPanel } from "../../components/report/ReportSettingsPanel";
+import { ShareLinkModal } from "../../components/report/ShareLinkModal";
+import { SharePasswordGate } from "../../components/report/SharePasswordGate";
 import { PagesSidebar } from "../../components/report/PagesSidebar";
 import { OverviewEditor } from "../../components/report/OverviewEditor";
 import { PageEditor } from "../../components/report/PageEditor";
 import { CommentDetail } from "../../components/report/CommentDetail";
 import { CommentsList } from "../../components/report/CommentsList";
 import { BottomToolbar } from "../../components/report/BottomToolbar";
+
+function sharePasswordKey(id: string) {
+  return `annotate-share-password-${id}`;
+}
 
 // ─── MAIN REPORT PAGE ─────────────────────────────────────────────────────────
 export default function ReportPage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,7 +32,6 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [readonly, setReadonly] = useState(true);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [selectedAnnotation, setSelectedAnnotation] = useState<Annotation | null>(null);
@@ -41,6 +46,11 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState("");
   const [jiraConfigured, setJiraConfigured] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [needsSharePassword, setNeedsSharePassword] = useState(false);
+  const [sharePasswordError, setSharePasswordError] = useState("");
+  const [checkingSharePassword, setCheckingSharePassword] = useState(false);
+  const [viewerSharePassword, setViewerSharePassword] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -62,17 +72,52 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    fetch(`/api/reports/${id}`)
-      .then(r => r.ok ? r.json() : Promise.reject("Not found"))
+  function loadReport(sharePw: string | null, isRetry = false) {
+    const headers: Record<string, string> = {};
+    const auditPw = sessionStorage.getItem("annotate-password");
+    if (auditPw) headers["x-audit-password"] = auditPw;
+    if (sharePw) headers["x-share-password"] = sharePw;
+    fetch(`/api/reports/${id}`, { headers })
+      .then(async r => {
+        if (r.status === 401) {
+          const data = await r.json().catch(() => ({} as any));
+          if (data.requiresPassword) return null;
+        }
+        if (!r.ok) throw new Error("Not found");
+        return r.json();
+      })
       .then(data => {
+        if (!data) {
+          setNeedsSharePassword(true);
+          if (isRetry) setSharePasswordError("Incorrect password.");
+          setLoading(false);
+          setCheckingSharePassword(false);
+          return;
+        }
+        setNeedsSharePassword(false);
         setReport(data);
         const isReadonly = new URLSearchParams(window.location.search).get("view") === "1";
         if (!isReadonly) setActivePageId(data.pages?.[0]?.id || null);
         setLoading(false);
+        setCheckingSharePassword(false);
       })
-      .catch(() => { setError("Report not found."); setLoading(false); });
+      .catch(() => { setError("Report not found."); setLoading(false); setCheckingSharePassword(false); });
+  }
+
+  useEffect(() => {
+    const cachedSharePw = sessionStorage.getItem(sharePasswordKey(id));
+    if (cachedSharePw) setViewerSharePassword(cachedSharePw);
+    loadReport(cachedSharePw);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  function submitSharePassword(pw: string) {
+    setCheckingSharePassword(true);
+    setSharePasswordError("");
+    sessionStorage.setItem(sharePasswordKey(id), pw);
+    setViewerSharePassword(pw);
+    loadReport(pw, true);
+  }
 
   useEffect(() => {
     if (!report || !password) { setJiraConfigured(false); return; }
@@ -142,9 +187,11 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
     setSaving(false);
   }
 
-  function copyShareLink() {
-    const url = `${window.location.origin}/report/${id}?view=1`;
-    navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  async function updateSharePassword(sharePassword: string | undefined) {
+    if (!report) return;
+    const updated = { ...report, sharePassword };
+    setReport(updated);
+    await saveReport(updated);
   }
 
   function exportHTML() {
@@ -287,6 +334,10 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 
+  if (needsSharePassword) return (
+    <SharePasswordGate onSubmit={submitSharePassword} error={sharePasswordError} checking={checkingSharePassword} />
+  );
+
   if (error || !report) return (
     <div className="min-h-screen bg-brand-off-white flex items-center justify-center">
       <p className="text-brand-red font-bold text-sm">{error}</p>
@@ -316,7 +367,6 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
         report={report}
         readonly={readonly}
         saving={saving}
-        copied={copied}
         editingTitle={editingTitle}
         titleInput={titleInput}
         onStartEditTitle={() => { setTitleInput(report.siteName); setEditingTitle(true); }}
@@ -339,7 +389,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
         }}
         onTitleKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingTitle(false); }}
         onAddPage={addManualPage}
-        onCopyShareLink={copyShareLink}
+        onOpenShareLink={() => setShareModalOpen(true)}
         onExport={exportHTML}
         onSignOut={() => { sessionStorage.removeItem("annotate-password"); window.location.href = "/"; }}
         canManageClient={!readonly}
@@ -351,6 +401,16 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
           password={password}
           onClose={() => setSettingsOpen(false)}
           onJiraConfigChange={setJiraConfigured}
+        />
+      )}
+
+      {shareModalOpen && (
+        <ShareLinkModal
+          shareUrl={`${window.location.origin}/report/${id}?view=1`}
+          sharePassword={report.sharePassword}
+          readonly={readonly}
+          onClose={() => setShareModalOpen(false)}
+          onSave={updateSharePassword}
         />
       )}
 
@@ -409,6 +469,7 @@ export default function ReportPage({ params }: { params: Promise<{ id: string }>
               readonly={readonly}
               reportId={id}
               password={password}
+              sharePassword={viewerSharePassword}
               isNew={!activePage?.annotations?.some((a: Annotation) => a.id === currentSelected.id)}
               onClientNotesSaved={(annotationId, notes) => activePage && handleClientNotesSaved(activePage.id, annotationId, notes)}
               saving={saving}

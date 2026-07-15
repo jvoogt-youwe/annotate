@@ -37,3 +37,15 @@ export const FIELD_CLASS =
 export function genId() {
   return Math.random().toString(36).slice(2, 9);
 }
+
+// Charset excludes visually ambiguous characters (0/O, 1/l/I) since this is meant
+// to be read aloud or retyped, not just copy-pasted.
+const SHARE_PASSWORD_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+// Client-facing share-link password. Uses the Web Crypto RNG (not Math.random,
+// unlike genId above) because this value gates access to a report's contents.
+export function generateSharePassword(length = 14): string {
+  const bytes = new Uint32Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => SHARE_PASSWORD_CHARS[b % SHARE_PASSWORD_CHARS.length]).join("");
+}

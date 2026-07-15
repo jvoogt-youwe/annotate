@@ -4,15 +4,14 @@ import type { Report } from "../../lib/types";
 
 // ─── HEADER ───────────────────────────────────────────────────────────────────
 export function ReportHeader({
-  report, readonly, saving, copied, editingTitle, titleInput,
+  report, readonly, saving, editingTitle, titleInput,
   onStartEditTitle, onTitleChange, onTitleBlur, onTitleKeyDown,
-  onAddPage, onCopyShareLink, onExport, onSignOut,
+  onAddPage, onOpenShareLink, onExport, onSignOut,
   canManageClient, onOpenSettings,
 }: {
   report: Report;
   readonly: boolean;
   saving: boolean;
-  copied: boolean;
   editingTitle: boolean;
   titleInput: string;
   onStartEditTitle: () => void;
@@ -20,7 +19,7 @@ export function ReportHeader({
   onTitleBlur: () => void;
   onTitleKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onAddPage: () => void;
-  onCopyShareLink: () => void;
+  onOpenShareLink: () => void;
   onExport: () => void;
   onSignOut: () => void;
   canManageClient?: boolean;
@@ -68,10 +67,9 @@ export function ReportHeader({
               + Add page
             </button>
           )}
-          <button onClick={onCopyShareLink}
-            className="text-brand-white border-none rounded-lg px-4 py-2 font-bold text-[13px] cursor-pointer transition-colors duration-200"
-            style={{ background: copied ? "#00c48c" : "#1e1e1e" }}>
-            {copied ? "✓ Copied" : "Share link"}
+          <button onClick={onOpenShareLink}
+            className="bg-[#1e1e1e] text-brand-white border-none rounded-lg px-4 py-2 font-bold text-[13px] cursor-pointer transition-colors duration-200">
+            Share link
           </button>
           <button onClick={onExport} className="bg-brand-red text-brand-white border-none rounded-lg px-4 py-2 font-bold text-[13px] cursor-pointer">
             ↓ Export

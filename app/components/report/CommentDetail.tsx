@@ -13,10 +13,11 @@ function withProtocol(url: string) {
 
 // ─── COMMENT DETAIL (side panel, editable annotation view — shared by both the ──
 // ─── "Annotations" list selection and clicking a pin directly on the screenshot) ──
-export function CommentDetail({ annotation, page, onClose, onSave, onDelete, readonly, reportId, password, onClientNotesSaved, isNew, saving, jiraConfigured, onPushToJira }: {
+export function CommentDetail({ annotation, page, onClose, onSave, onDelete, readonly, reportId, password, sharePassword, onClientNotesSaved, isNew, saving, jiraConfigured, onPushToJira }: {
   annotation: Annotation; page: Page | null | undefined; onClose: () => void;
   onSave: (a: Annotation) => void; onDelete: (id: string) => void;
   readonly: boolean; reportId: string; password: string | null;
+  sharePassword?: string | null;
   onClientNotesSaved: (annotationId: string, notes: string) => void;
   isNew?: boolean;
   saving: boolean;
@@ -52,13 +53,16 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
   const [clientNotes, setClientNotes] = useState(annotation.clientNotes || "");
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
+  const [notesDirty, setNotesDirty] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [dirty, setDirty] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(false);
+  const notesMountedRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const notesDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Autosave — mirrors the debounced save-on-change pattern used elsewhere in the
   // report (page meta, overview) instead of requiring an explicit "Save" click,
@@ -76,6 +80,21 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.category, form.severity, form.title, form.detail, form.recommendation, attachments, aiFeedback, clientNotes]);
+
+  // Same autosave pattern for the client (readonly) view, where there's no
+  // surrounding form/footer to piggyback on — clientNotes is the only editable field.
+  useEffect(() => {
+    if (!readonly) return;
+    if (!notesMountedRef.current) { notesMountedRef.current = true; return; }
+    setNotesDirty(true);
+    if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current);
+    notesDebounceRef.current = setTimeout(() => {
+      setNotesDirty(false);
+      saveClientNotes();
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return () => { if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientNotes]);
 
   function setFeedback(value: "up" | "down") {
     if (isNew || readonly) return;
@@ -122,7 +141,10 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
     try {
       await fetch(`/api/reports/${reportId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(sharePassword ? { "x-share-password": sharePassword } : {}),
+        },
         body: JSON.stringify({ pageId: page?.id, annotationId: annotation.id, clientNotes }),
       });
       onClientNotesSaved(annotation.id, clientNotes);
@@ -314,11 +336,11 @@ export function CommentDetail({ annotation, page, onClose, onSave, onDelete, rea
             className={`${FIELD_CLASS} resize-y`}
             style={{ background: readonly ? "#fffbe6" : "#f7f7f8", border: `1.5px solid ${readonly ? "#f0d060" : "#e8e8e8"}` }} />
           {readonly && (
-            <button onClick={saveClientNotes} disabled={notesSaving}
-              className="mt-2.5 text-brand-white border-none rounded-lg px-5 py-2.5 font-bold text-[13px] cursor-pointer transition-colors duration-200"
-              style={{ background: notesSaved ? "#00c48c" : "#151515" }}>
-              {notesSaved ? "✓ Saved" : notesSaving ? "Saving…" : "Save notes"}
-            </button>
+            <span className="mt-2 text-xs font-bold flex items-center gap-1.5"
+              style={{ color: notesDirty ? "#a16707" : notesSaving ? "#9a9a9a" : notesSaved ? "#008760" : "transparent" }}>
+              {notesDirty && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#a16707" }} />}
+              {notesDirty ? "Unsaved changes" : notesSaving ? "Saving…" : notesSaved ? "✓ Saved" : " "}
+            </span>
           )}
         </div>
 

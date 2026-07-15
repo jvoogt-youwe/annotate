@@ -60,4 +60,7 @@ export interface Report {
   pages: Page[];
   overview?: Overview;
   dataSources?: DataSource[];
+  // Gates the public share link (GET/PATCH on /api/reports/[id]) with a client-facing
+  // password, separate from the internal AUDIT_PASSWORD. Undefined/empty = link is open.
+  sharePassword?: string;
 }
